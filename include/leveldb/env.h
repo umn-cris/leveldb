@@ -402,6 +402,15 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   Env* target_;
 };
 
+struct WriteHints {
+  // SSt files are from 0 to N, other files (e.g., WAL, Manifest) are -1
+  int write_level;
+
+  // the category, sst file is 1, WAL is 2, manifest is 3,
+  //current is 4, LOG is 5
+  int file_cate;
+};
+
 }  // namespace leveldb
 
 // This workaround can be removed when leveldb::Env::DeleteFile is removed.

@@ -809,6 +809,9 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   }
 
   // Make the output file
+  WriteHints write_hints;
+  write_hints.write_level = compact->compaction->level()+1;
+  write_hints.file_cate = 1;
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
