@@ -273,6 +273,13 @@ class InMemoryEnv : public EnvWrapper {
     return Status::OK();
   }
 
+  Status NewWritableFile(const std::string& filename,
+                         WritableFile** result,
+                         WriteHints write_hints) override {
+    (void)write_hints;
+    return NewWritableFile(filename, result);
+  }
+
   Status NewAppendableFile(const std::string& fname,
                            WritableFile** result) override {
     MutexLock lock(&mutex_);
