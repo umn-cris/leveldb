@@ -187,7 +187,10 @@ Status DBImpl::NewDB() {
 
   const std::string manifest = DescriptorFileName(dbname_, 1);
   WritableFile* file;
-  Status s = env_->NewWritableFile(manifest, &file);
+  WriteHints write_hints;
+  write_hints.write_level = -1;
+  write_hints.file_cate = 3;
+  Status s = env_->NewWritableFile(manifest, &file, write_hints);
   if (!s.ok()) {
     return s;
   }
@@ -813,7 +816,7 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   write_hints.write_level = compact->compaction->level()+1;
   write_hints.file_cate = 1;
   std::string fname = TableFileName(dbname_, file_number);
-  Status s = env_->NewWritableFile(fname, &compact->outfile);
+  Status s = env_->NewWritableFile(fname, &compact->outfile, write_hints);
   if (s.ok()) {
     compact->builder = new TableBuilder(options_, compact->outfile);
   }
@@ -1360,7 +1363,10 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       assert(versions_->PrevLogNumber() == 0);
       uint64_t new_log_number = versions_->NewFileNumber();
       WritableFile* lfile = nullptr;
-      s = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile);
+      WriteHints write_hints;
+      write_hints.write_level = -1;
+      write_hints.file_cate = 2;
+      s = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile, write_hints);
       if (!s.ok()) {
         // Avoid chewing through file number space in a tight loop.
         versions_->ReuseFileNumber(new_log_number);
@@ -1491,8 +1497,11 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
+    WriteHints write_hints;
+    write_hints.write_level = -1;
+    write_hints.file_cate = 2;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
-                                     &lfile);
+                                     &lfile, write_hints);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;

@@ -131,6 +131,9 @@ class FaultInjectionTestEnv : public EnvWrapper {
   ~FaultInjectionTestEnv() override = default;
   Status NewWritableFile(const std::string& fname,
                          WritableFile** result) override;
+  Status NewWritableFile(const std::string& fname,
+                         WritableFile** result,
+                         WriteHints write_hints) override;
   Status NewAppendableFile(const std::string& fname,
                            WritableFile** result) override;
   Status RemoveFile(const std::string& f) override;
@@ -243,6 +246,13 @@ Status FaultInjectionTestEnv::NewWritableFile(const std::string& fname,
     new_files_since_last_dir_sync_.insert(fname);
   }
   return s;
+}
+
+Status FaultInjectionTestEnv::NewWritableFile(const std::string& fname,
+                                              WritableFile** result,
+                                              WriteHints write_hints) {
+  (void) write_hints;
+  return NewWritableFile(fname, result);
 }
 
 Status FaultInjectionTestEnv::NewAppendableFile(const std::string& fname,

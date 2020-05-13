@@ -48,6 +48,15 @@ class SequentialFile;
 class Slice;
 class WritableFile;
 
+struct WriteHints {
+  // SSt files are from 0 to N, other files (e.g., WAL, Manifest) are -1
+  int write_level;
+
+  // the category, sst file is 1, WAL is 2, manifest is 3,
+  //current is 4, LOG is 5
+  int file_cate;
+};
+
 class LEVELDB_EXPORT Env {
  public:
   Env();
@@ -94,6 +103,18 @@ class LEVELDB_EXPORT Env {
   // The returned file will only be accessed by one thread at a time.
   virtual Status NewWritableFile(const std::string& fname,
                                  WritableFile** result) = 0;
+
+  // Create an object that writes to a new file with the specified
+  // name.  Deletes any existing file with the same name and creates a
+  // new file.  On success, stores a pointer to the new file in
+  // *result and returns OK.  On failure stores nullptr in *result and
+  // returns non-OK. Pass the write hints to the file, tell lower level
+  // the file level and the file categories
+  //
+  // The returned file will only be accessed by one thread at a time.
+  virtual Status NewWritableFile(const std::string& fname,
+                                 WritableFile** result,
+                                 WriteHints write_hints) = 0;
 
   // Create an object that either appends to an existing file, or
   // writes to a new file (if the file does not exist to begin with).
@@ -352,6 +373,9 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
   Status NewWritableFile(const std::string& f, WritableFile** r) override {
     return target_->NewWritableFile(f, r);
   }
+  Status NewWritableFile(const std::string& f, WritableFile** r, WriteHints write_hints) override {
+    return target_->NewWritableFile(f, r, write_hints);
+  }
   Status NewAppendableFile(const std::string& f, WritableFile** r) override {
     return target_->NewAppendableFile(f, r);
   }
@@ -400,15 +424,6 @@ class LEVELDB_EXPORT EnvWrapper : public Env {
 
  private:
   Env* target_;
-};
-
-struct WriteHints {
-  // SSt files are from 0 to N, other files (e.g., WAL, Manifest) are -1
-  int write_level;
-
-  // the category, sst file is 1, WAL is 2, manifest is 3,
-  //current is 4, LOG is 5
-  int file_cate;
 };
 
 }  // namespace leveldb

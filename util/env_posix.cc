@@ -555,6 +555,13 @@ class PosixEnv : public Env {
     return Status::OK();
   }
 
+  Status NewWritableFile(const std::string& filename,
+                         WritableFile** result,
+                         WriteHints write_hints) override {
+    (void)write_hints;
+    return NewWritableFile(filename, result);
+  }
+
   Status NewAppendableFile(const std::string& filename,
                            WritableFile** result) override {
     int fd = ::open(filename.c_str(),

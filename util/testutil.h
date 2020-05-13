@@ -65,6 +65,13 @@ class ErrorEnv : public EnvWrapper {
     return target()->NewWritableFile(fname, result);
   }
 
+  Status NewWritableFile(const std::string& filename,
+                         WritableFile** result,
+                         WriteHints write_hints) override {
+    (void)write_hints;
+    return NewWritableFile(filename, result);
+  }
+
   Status NewAppendableFile(const std::string& fname,
                            WritableFile** result) override {
     if (writable_file_error_) {
