@@ -1,6 +1,9 @@
-#ifndef ZONE_NAMESPACE_H_
-#define ZONE_NAMESPACE_H_
+#ifndef ZONE_NAMESPACEH_
+#define ZONE_NAMESPACEH_
 
+#include <vector>
+#include <map>
+#include <string>
 #include "leveldb/status.h"
 
 namespace leveldb {
@@ -9,20 +12,20 @@ enum ZoneType {CONVENTIONAL, SEQUENTIAL_WRITE_PREFERRED, SEQUENTIAL_WRITE_REQUIR
 enum ZoneCondition {OPEN, CLOSED};
 enum ZoneState {SEQUENTIAL, NON_SEQUENTIAL};
 
-class ZoneInfo {
-public:
+struct ZoneInfo {
+    int id;
+    int first_LBA;
     int size;
     int write_pointer;
-    int first_LBA;
     ZoneType zone_type;
     ZoneCondition zone_condition;
     ZoneState zone_state;
 };
 
-class ZoneNamespace {
+class Zone {
 public:
-    ZoneNamespace() = delete;
-    virtual ~ZoneNamespace();
+    Zone() = delete;
+    virtual ~Zone();
 
     virtual Status OpenZone() = 0;
 
@@ -43,6 +46,33 @@ private:
     ZoneInfo zone_info_; 
 };
 
+
+struct ZoneAddress {
+    int zone_id;
+    size_t offset;
+};
+
+
+class ZoneNamespace {
+public:
+    ZoneNamespace() = delete;
+    virtual ~ZoneNamespace();
+
+    // Get the number of zones.
+    virtual size_t GetZoneCount() = 0;
+
+    // Create a new zone.
+    virtual Status NewZone() = 0;
+
+    // Remove an existing zone based on its id.
+    virtual Status RemoveZone(int id) = 0;
+
+private:
+    size_t next_zone_id_ = 0;
+    std::vector<Zone> zones_;
+    std::map<int, std::vector<Zone>::iterator> zone_id2zone_;
+};
+
 }
 
-#endif // ZONE_NAMESPACE_H_
+#endif // ZONE_NAMESPACEH_
