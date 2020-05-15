@@ -20,7 +20,7 @@
 
 #include "leveldb/export.h"
 #include "leveldb/status.h"
-#include "leveldb/zone_namespace.h"
+#include "zone_test/zone_namespace.h"
 
 // This workaround can be removed when leveldb::Env::DeleteFile is removed.
 #if defined(_WIN32)
