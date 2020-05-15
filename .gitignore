@@ -31,3 +31,5 @@ build/*
 *.exe
 *.out
 *.app
+include/.DS_Store
+.DS_Store
