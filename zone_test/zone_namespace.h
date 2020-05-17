@@ -14,41 +14,43 @@ enum ZoneType {CONVENTIONAL, SEQUENTIAL_WRITE_PREFERRED, SEQUENTIAL_WRITE_REQUIR
 enum ZoneCondition {OPEN, CLOSED};
 enum ZoneState {SEQUENTIAL, NON_SEQUENTIAL};
 
-struct ZoneInfo {
-    int id;
-    size_t first_LBA = -1;
-    size_t size;
-    size_t write_pointer;
-    ZoneType zone_type;
-    ZoneCondition zone_condition;
-    ZoneState zone_state;
-};
+    struct ZoneInfo {
+        int id;
+        size_t first_LBA = -1;
+        size_t size;
+        size_t write_pointer;
+        ZoneType zone_type;
+        ZoneCondition zone_condition;
+        ZoneState zone_state;
+    };
 
 class Zone {
 public:
-    Zone();
+    Zone()= default;
     virtual ~Zone()= default;
+
+
 
     // lookup file to open
     // if not exist, create
     // file name is "Zone" + id
-    virtual Status OpenZone();
+    virtual Status OpenZone()=0;
 
-    virtual Status CloseZone();
+    virtual Status CloseZone()=0;
 
-    virtual Status FinishZone();
+    virtual Status FinishZone()=0;
 
-    virtual ZoneInfo ReportZone();
+    virtual ZoneInfo ReportZone()=0;
 
-    virtual Status ResetWritePointer();
+    virtual Status ResetWritePointer()=0;
 
-    virtual Status Read();
+    virtual Status Read()=0;
 
-    virtual Status Write();
+    virtual Status Write()=0;
 
 protected:
-
-    ZoneInfo zone_info_; 
+    ZoneInfo zoneInfo_;
+    //ZoneInfo* zone_info_;
 };
 
 
@@ -60,47 +62,21 @@ struct ZoneAddress {
 
 class ZoneNamespace {
 public:
-    ZoneNamespace();
+    ZoneNamespace()= default;
     virtual ~ZoneNamespace()= default;
 
     // Get the number of zones.
-    size_t GetZoneCount(){
-       return zones_.size();
-    };
+    virtual size_t GetZoneCount() = 0;
 
     // Create a new zone.
     virtual Status NewZone() = 0;
 
     // Remove an existing zone based on its id.
-    Status RemoveZone(int id){
-        Status status;
-        auto it = zones_.find(id);
-        if(it!=zones_.end()){
-            zones_.erase(it);
-            status = Status::OK();
-        } else{
-            status = Status::NotFound("Zone NotFound status message");
-            std::cout<<"[Zone_namespace.h] [RemoveZone] no zone "<<id<<"to remove"<<std::endl;
-        }
-        return status;
-    }
+    virtual Status RemoveZone(int id) = 0;
 
-    Status GetZone(int id, Zone& res_zone){
-        Status status;
-        auto it = zones_.find(id);
-        if(it!=zones_.end()){
-            res_zone = it->second;
-            status = Status::OK();
-        } else{
-            status = Status::NotFound("Zone NotFound status message");
-            std::cout<<"[Zone_namespace.h] [RemoveZone] no zone "<<id<<"to get"<<std::endl;
-        }
-        return status;
-    }
+    virtual Status GetZone(int id, Zone& res_zone) = 0;
 
-protected:
-    int next_zone_id_ = 0;
-    std::map<int, Zone> zones_;
+
 };
 
 }

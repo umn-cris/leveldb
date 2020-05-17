@@ -27,7 +27,7 @@ int main() {
     assert(status.ok());
     cout << res << endl;
 
-    DmZone dmZone;
+    HmZoneNamespace hmZoneNamespace;
 
     delete db;
     return 0;
