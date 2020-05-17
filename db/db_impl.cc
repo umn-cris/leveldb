@@ -1511,6 +1511,21 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->mem_->Ref();
     }
   }
+  if (s.ok() && options.stat_log) {
+    uint64_t now_time = impl->env_->NowMicros();
+    WritableFile* log_f;
+    std::string f_name = dbname + "/StatLog_" + NumberToString(now_time);
+    s = options.env->NewWritableFile(f_name, &log_f);
+    if (s.ok()) {
+      StatLog* new_log = new StatLog(log_f);
+      impl->stat_log_.reset(new_log);
+    }
+    std::string log_cont = "New Stat Log File";
+    log_cont.push_back('\n');
+    log_cont = log_cont + "Start time: " + NumberToString(now_time);
+    log_cont.push_back('\n');
+    impl->stat_log_->AppendLog(log_cont);
+  }
   if (s.ok() && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.
     edit.SetLogNumber(impl->logfile_number_);
