@@ -5,7 +5,6 @@
 #include "leveldb/db.h"
 #include <cassert>
 #include <iostream>
-#include "dm_zone.h"
 using namespace std;
 using namespace leveldb;
 
