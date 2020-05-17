@@ -44,7 +44,7 @@ void initZNS(const char * dir_name, map<int, HmZone> zone_list){
         int zone_id = atol(filename->d_name);
         HmZone hmZone;
         initZone(filename->d_name, hmZone);
-        zone_list.emplace(zone_id,filename ->d_name);
+        zone_list.emplace(zone_id,hmZone);
     }
     return;
 }
