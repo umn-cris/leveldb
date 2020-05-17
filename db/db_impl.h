@@ -17,6 +17,7 @@
 #include "leveldb/env.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
+#include "util/logging.h"
 
 namespace leveldb {
 
@@ -163,6 +164,7 @@ class DBImpl : public DB {
   const bool owns_info_log_;
   const bool owns_cache_;
   const std::string dbname_;
+  std::unique_ptr<StatLog> stat_log_;
 
   // table_cache_ provides its own synchronization
   TableCache* const table_cache_;
