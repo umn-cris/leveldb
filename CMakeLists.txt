@@ -189,7 +189,10 @@ target_sources(leveldb
     "util/options.cc"
     "util/random.h"
     "util/status.cc"
-
+    "zone_test/hm_zone.h"
+    "zone_test/hm_zone.cpp"
+    "zone_test/dm_zone.h"
+    "zone_test/dm_zone.cpp"
   # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".
   $<$<VERSION_GREATER:CMAKE_VERSION,3.2>:PUBLIC>
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/c.h"

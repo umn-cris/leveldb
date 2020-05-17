@@ -31,7 +31,7 @@ namespace leveldb {
     };
 
 
-
+    
     class DmZoneNamespace: public ZoneNamespace {
     public:
         DmZoneNamespace();
