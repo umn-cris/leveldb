@@ -187,7 +187,10 @@ Status DBImpl::NewDB() {
 
   const std::string manifest = DescriptorFileName(dbname_, 1);
   WritableFile* file;
-  Status s = env_->NewWritableFile(manifest, &file);
+  WriteHints write_hints;
+  write_hints.write_level = -1;
+  write_hints.file_cate = 3;
+  Status s = env_->NewWritableFile(manifest, &file, write_hints);
   if (!s.ok()) {
     return s;
   }
@@ -809,8 +812,11 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   }
 
   // Make the output file
+  WriteHints write_hints;
+  write_hints.write_level = compact->compaction->level()+1;
+  write_hints.file_cate = 1;
   std::string fname = TableFileName(dbname_, file_number);
-  Status s = env_->NewWritableFile(fname, &compact->outfile);
+  Status s = env_->NewWritableFile(fname, &compact->outfile, write_hints);
   if (s.ok()) {
     compact->builder = new TableBuilder(options_, compact->outfile);
   }
@@ -1357,7 +1363,10 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       assert(versions_->PrevLogNumber() == 0);
       uint64_t new_log_number = versions_->NewFileNumber();
       WritableFile* lfile = nullptr;
-      s = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile);
+      WriteHints write_hints;
+      write_hints.write_level = -1;
+      write_hints.file_cate = 2;
+      s = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile, write_hints);
       if (!s.ok()) {
         // Avoid chewing through file number space in a tight loop.
         versions_->ReuseFileNumber(new_log_number);
@@ -1488,8 +1497,11 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
+    WriteHints write_hints;
+    write_hints.write_level = -1;
+    write_hints.file_cate = 2;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
-                                     &lfile);
+                                     &lfile, write_hints);
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
@@ -1498,6 +1510,21 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->mem_ = new MemTable(impl->internal_comparator_);
       impl->mem_->Ref();
     }
+  }
+  if (s.ok() && options.stat_log) {
+    uint64_t now_time = impl->env_->NowMicros();
+    WritableFile* log_f;
+    std::string f_name = dbname + "/StatLog_" + NumberToString(now_time);
+    s = options.env->NewWritableFile(f_name, &log_f);
+    if (s.ok()) {
+      StatLog* new_log = new StatLog(log_f);
+      impl->stat_log_.reset(new_log);
+    }
+    std::string log_cont = "New Stat Log File";
+    log_cont.push_back('\n');
+    log_cont = log_cont + "Start time: " + NumberToString(now_time);
+    log_cont.push_back('\n');
+    impl->stat_log_->AppendLog(log_cont);
   }
   if (s.ok() && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.

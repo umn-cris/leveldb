@@ -140,6 +140,10 @@ struct LEVELDB_EXPORT Options {
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
   const FilterPolicy* filter_policy = nullptr;
+
+  // If enabled, write the internal statistics to the StatLog. It is
+  // Stored in the DB directory and named as StatLog_(time in micro)
+  bool stat_log = true;
 };
 
 // Options that control read operations

@@ -23,7 +23,10 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
   std::string fname = TableFileName(dbname, meta->number);
   if (iter->Valid()) {
     WritableFile* file;
-    s = env->NewWritableFile(fname, &file);
+    WriteHints write_hints;
+    write_hints.write_level = 0;
+    write_hints.file_cate = 1;
+    s = env->NewWritableFile(fname, &file, write_hints);
     if (!s.ok()) {
       return s;
     }

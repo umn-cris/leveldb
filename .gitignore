@@ -1,6 +1,7 @@
 # Prerequisites
 *.d
-
+build
+build/*
 # Compiled Object files
 *.slo
 *.lo
@@ -30,3 +31,5 @@
 *.exe
 *.out
 *.app
+include/.DS_Store
+.DS_Store

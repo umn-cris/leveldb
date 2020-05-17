@@ -451,6 +451,13 @@ class WindowsEnv : public Env {
     return Status::OK();
   }
 
+  Status NewWritableFile(const std::string& filename,
+                         WritableFile** result,
+                         WriteHints write_hints) override {
+    (void)write_hints;
+    return NewWritableFile(filename, result);
+  }
+
   Status NewAppendableFile(const std::string& filename,
                            WritableFile** result) override {
     DWORD desired_access = FILE_APPEND_DATA;
