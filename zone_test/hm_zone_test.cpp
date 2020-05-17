@@ -9,7 +9,6 @@
 #include "leveldb/db.h"
 #include <cassert>
 #include <iostream>
-#include "hm_zone.h"
 using namespace std;
 using namespace leveldb;
 
@@ -26,8 +25,6 @@ int main() {
     status = db->Get(ReadOptions(), "KeyNameExample", &res);
     assert(status.ok());
     cout << res << endl;
-
-    DmZone dmZone;
 
     delete db;
     return 0;

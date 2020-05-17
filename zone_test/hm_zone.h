@@ -16,9 +16,7 @@ namespace leveldb {
         }
         ~HmZone()= default;
 
-        Status OpenZone(){
-
-        }
+        Status OpenZone();
 
         Status CloseZone();
 
