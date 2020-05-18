@@ -114,6 +114,8 @@ namespace leveldb
     {
       Slice content(data);
       log_->Append(content);
+      log_->Flush();
+      log_->Sync();
     }
   }
 
