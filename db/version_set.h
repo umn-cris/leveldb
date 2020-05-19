@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <unordered_map>
 
 #include "db/dbformat.h"
 #include "db/version_edit.h"
@@ -56,6 +57,13 @@ bool SomeFileOverlapsRange(const InternalKeyComparator& icmp,
                            const std::vector<FileMetaData*>& files,
                            const Slice* smallest_user_key,
                            const Slice* largest_user_key);
+
+struct FileStat {
+  uint64_t number;
+  uint64_t file_size;    // File size in bytes
+  uint64_t create_time;
+  uint64_t delete_time;
+};
 
 class Version {
  public:
@@ -262,6 +270,13 @@ class VersionSet {
   // "key" as of version "v".
   uint64_t ApproximateOffsetOf(Version* v, const InternalKey& key);
 
+  // Write the current live files file state to Stat log
+  void LogCurrentFilesStat(StatLog* log);
+
+  // Write Deleted and Current files state to Stat log. For Current file,
+  // the life_time is between log time and create time.
+  void LogAllFilesStat(StatLog* log);
+
   // Return a human-readable short (single-line) summary of the number
   // of files per level.  Uses *scratch as backing store.
   struct LevelSummaryStorage {
@@ -303,6 +318,7 @@ class VersionSet {
   uint64_t last_sequence_;
   uint64_t log_number_;
   uint64_t prev_log_number_;  // 0 or backing store for memtable being compacted
+  std::unordered_map<int, std::unordered_map<uint64_t, FileStat>> all_file_stats_;
 
   // Opened lazily
   WritableFile* descriptor_file_;
