@@ -33,15 +33,7 @@ struct ZoneInfo {
     ZoneCondition zone_condition;
     ZoneState zone_state;
 };
-    struct ZoneInfo {
-        int id = 0;
-        size_t first_LBA = 0;
-        size_t size = 0;
-        size_t write_pointer = 0;
-        ZoneType zone_type;
-        ZoneCondition zone_condition;
-        ZoneState zone_state;
-    };
+
 
 class Zone {
 public:
