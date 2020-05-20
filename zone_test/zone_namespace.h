@@ -7,18 +7,21 @@
 #include <iostream>
 #include <list>
 #include "leveldb/status.h"
-
+static const size_t ZONESIZE = 512*1024*1024;
 namespace leveldb {
 
 enum ZoneType {CONVENTIONAL, SEQUENTIAL_WRITE_PREFERRED, SEQUENTIAL_WRITE_REQUIRED};
+static const std::string TypeStr[] = { "CONVENTIONAL", "SEQUENTIAL_WRITE_PREFERRED", "SEQUENTIAL_WRITE_REQUIRED" };
 enum ZoneCondition {OPEN, CLOSED};
+static const std::string ConditionStr[] = { "OPEN", "CLOSED"};
 enum ZoneState {SEQUENTIAL, NON_SEQUENTIAL};
+static const std::string StateStr[] = { "SEQUENTIAL", "NON_SEQUENTIAL"};
 
     struct ZoneInfo {
-        int id;
-        size_t first_LBA = -1;
-        size_t size;
-        size_t write_pointer;
+        int id = 0;
+        size_t first_LBA = 0;
+        size_t size = 0;
+        size_t write_pointer = 0;
         ZoneType zone_type;
         ZoneCondition zone_condition;
         ZoneState zone_state;
@@ -76,6 +79,9 @@ public:
 
     virtual Status GetZone(int id, Zone& res_zone) = 0;
 
+    virtual Status InitZNS(const char* dir_name) = 0;
+
+    virtual Status InitZone(const char *path, const char *filename,  char *filepath) = 0;
 
 };
 
