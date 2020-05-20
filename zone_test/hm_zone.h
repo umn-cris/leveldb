@@ -29,11 +29,11 @@ namespace leveldb {
 
         Status ResetWritePointer();
 
-        Status Read(){}
+        Status Read(ZoneAddress addr, std::string &content) {Status s; return s;}
 
-        Status Write(){}
+        Status Write(ZoneAddress addr, std::string content) {Status s; return s;}
 
-        std::string ToString() const {
+        string ToString() const {
 
             string str = to_string(zoneInfo_.id);
 
