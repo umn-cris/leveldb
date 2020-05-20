@@ -19,22 +19,23 @@ namespace leveldb {
         }
 
 
-        Status OpenZone() {
+        Status OpenZone() {Status s; return s;}
 
-        }
+        Status CloseZone(){Status s; return s;}
 
-        Status CloseZone(){}
+        Status FinishZone(){Status s; return s;}
 
-        Status FinishZone(){}
+        ZoneInfo ReportZone(){ZoneInfo z; return z;}
 
-        ZoneInfo ReportZone(){}
+        Status ResetWritePointer(){Status s; return s;}
 
-        Status ResetWritePointer(){}
+        // Status Read(){Status s; return s;}
 
-        Status Read(){}
+        // Status Write(){Status s; return s;}
 
-        Status Write(){}
+        Status Read(ZoneAddress addr, std::string &content) {Status s; return s;}
 
+        Status Write(ZoneAddress addr, std::string content) {Status s; return s;}
     };
 
 

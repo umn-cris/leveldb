@@ -1,5 +1,5 @@
-#ifndef ZONE_NAMESPACEH_
-#define ZONE_NAMESPACEH_
+#ifndef ZONE_NAMESPACE_H_
+#define ZONE_NAMESPACE_H_
 
 #include <vector>
 #include <map>
@@ -14,15 +14,22 @@ enum ZoneType {CONVENTIONAL, SEQUENTIAL_WRITE_PREFERRED, SEQUENTIAL_WRITE_REQUIR
 enum ZoneCondition {OPEN, CLOSED};
 enum ZoneState {SEQUENTIAL, NON_SEQUENTIAL};
 
-    struct ZoneInfo {
-        int id;
-        size_t first_LBA = -1;
-        size_t size;
-        size_t write_pointer;
-        ZoneType zone_type;
-        ZoneCondition zone_condition;
-        ZoneState zone_state;
-    };
+
+struct ZoneAddress {
+    int zone_id;
+    size_t offset; // unit: bytes
+    size_t length = 0; // unit: bytes
+};
+
+struct ZoneInfo {
+    int id;
+    size_t first_LBA = -1;
+    size_t size;
+    size_t write_pointer;
+    ZoneType zone_type;
+    ZoneCondition zone_condition;
+    ZoneState zone_state;
+};
 
 class Zone {
 public:
@@ -44,9 +51,12 @@ public:
 
     virtual Status ResetWritePointer()=0;
 
-    virtual Status Read()=0;
+    // virtual Status Read()=0;
+    virtual Status Read(ZoneAddress addr, std::string &content) = 0;
 
-    virtual Status Write()=0;
+    // virtual Status Write()=0;
+    virtual Status Write(ZoneAddress addr, std::string content) = 0;
+
 
 protected:
     ZoneInfo zoneInfo_;
@@ -54,10 +64,6 @@ protected:
 };
 
 
-struct ZoneAddress {
-    int zone_id;
-    size_t offset;
-};
 
 
 class ZoneNamespace {
@@ -76,9 +82,9 @@ public:
 
     virtual Status GetZone(int id, Zone& res_zone) = 0;
 
-
+    // virtual Status Write(ZoneAddress addr, string content) = 0;
 };
 
 }
 
-#endif // ZONE_NAMESPACEH_
+#endif // ZONE_NAMESPACE_H_

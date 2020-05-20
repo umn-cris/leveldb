@@ -7,6 +7,7 @@
 //
 
 #include "leveldb/db.h"
+#include "leveldb/env_zns.h"
 #include <cassert>
 #include <iostream>
 #include "hm_zone.h"
