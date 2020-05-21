@@ -640,10 +640,34 @@ class VersionSet::Builder {
       const uint64_t number = deleted_file_set_kvp.second;
       levels_[level].deleted_files.insert(number);
 
-      if (vset_->all_file_stats_.find(level) != vset_->all_file_stats_.end()
-        && vset_->all_file_stats_[level].find(number) != vset_->all_file_stats_[level].end()) {
-          uint64_t delete_time = vset_->env_->NowMicros();
-          vset_->all_file_stats_[level][number].delete_time = delete_time;
+      if (edit->IsTrivialMove()) {
+        // If trival move, we also just move the file to other levels.
+        if (vset_->all_file_stats_.find(level) != vset_->all_file_stats_.end()
+          && vset_->all_file_stats_[level].find(number) != vset_->all_file_stats_[level].end()) {
+            FileStat tmp = vset_->all_file_stats_[level][number];
+            vset_->all_file_stats_[level].erase(number);
+            for (size_t i = 0; i < edit->new_files_.size(); i++) {
+              const int n_level = edit->new_files_[i].first;
+              FileMetaData* f = new FileMetaData(edit->new_files_[i].second);
+              if (f->number != number) {
+                continue;
+              }
+              auto found = vset_->all_file_stats_.find(n_level);
+              if (found == vset_->all_file_stats_.end()) {
+                std::map<uint64_t, FileStat> level_stats;
+                level_stats[number] = tmp;
+                vset_->all_file_stats_[n_level] = level_stats;
+              } else {
+                found->second[number] = tmp;
+              }
+            }
+          }
+      } else {
+        if (vset_->all_file_stats_.find(level) != vset_->all_file_stats_.end()
+          && vset_->all_file_stats_[level].find(number) != vset_->all_file_stats_[level].end()) {
+            uint64_t delete_time = vset_->env_->NowMicros();
+            vset_->all_file_stats_[level][number].delete_time = delete_time;
+        }
       }
     }
 
@@ -658,13 +682,16 @@ class VersionSet::Builder {
       tmp_f.file_size = f->file_size;
       tmp_f.create_time = f->create_time;
       tmp_f.delete_time = f->create_time;
+      tmp_f.created_level = level;
       auto found = vset_->all_file_stats_.find(level);
       if (found == vset_->all_file_stats_.end()) {
-        std::unordered_map<uint64_t, FileStat> level_stats;
+        std::map<uint64_t, FileStat> level_stats;
         level_stats[tmp_f.number] = tmp_f;
         vset_->all_file_stats_[level] = level_stats;
       } else {
-        found->second[tmp_f.number] = tmp_f;
+        if (found->second.find(tmp_f.number) == found->second.end()) {
+          found->second[tmp_f.number] = tmp_f;
+        }
       }
 
       f->refs = 1;
@@ -1508,11 +1535,13 @@ void VersionSet::LogAllFilesStat(StatLog* log) {
       uint64_t t;
       if (k->second.create_time == k->second.delete_time) {
         t = now_t - k->second.create_time;
+        k->second.delete_time = now_t;
       } else {
         t = k->second.delete_time - k->second.create_time;
       }
       std::string fp = NumberToString(k->second.number) + " "
           + NumberToString(k->second.file_size) + " "
+          + NumberToString(k->second.created_level) + " "
           + NumberToString(t) + " "
           + NumberToString(k->second.create_time) + " "
           + NumberToString(k->second.delete_time) + "\n";

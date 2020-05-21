@@ -63,6 +63,7 @@ struct FileStat {
   uint64_t file_size;    // File size in bytes
   uint64_t create_time;
   uint64_t delete_time;
+  int created_level;
 };
 
 class Version {
@@ -318,7 +319,7 @@ class VersionSet {
   uint64_t last_sequence_;
   uint64_t log_number_;
   uint64_t prev_log_number_;  // 0 or backing store for memtable being compacted
-  std::unordered_map<int, std::unordered_map<uint64_t, FileStat>> all_file_stats_;
+  std::map<int, std::map<uint64_t, FileStat>> all_file_stats_;
 
   // Opened lazily
   WritableFile* descriptor_file_;
