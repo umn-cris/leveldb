@@ -81,6 +81,10 @@ class VersionEdit {
 
   std::string DebugString() const;
 
+  bool IsTrivialMove() {return is_trivial_move_;}
+
+  void SetTrivalMove() { is_trivial_move_ = true;}
+
  private:
   friend class VersionSet;
 
@@ -96,6 +100,7 @@ class VersionEdit {
   bool has_prev_log_number_;
   bool has_next_file_number_;
   bool has_last_sequence_;
+  bool is_trivial_move_ = false;
 
   std::vector<std::pair<int, InternalKey>> compact_pointers_;
   DeletedFileSet deleted_files_;
