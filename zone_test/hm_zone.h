@@ -29,9 +29,9 @@ namespace leveldb {
 
         Status ResetWritePointer();
 
-        Status Read(ZoneAddress addr, std::string &content) {Status s; return s;}
+        Status Read(ZoneAddress addr, const char* data) {Status s; return s;}
 
-        Status Write(ZoneAddress addr, std::string content) {Status s; return s;}
+        Status Write(ZoneAddress addr, char* data) {Status s; return s;}
 
         string ToString() const {
 
