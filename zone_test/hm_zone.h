@@ -5,37 +5,54 @@
 #ifndef LEVELDB_HM_ZONE_H
 #define LEVELDB_HM_ZONE_H
 #include "zone_namespace.h"
+#include <fstream>
 //TODO write pointer position look up
+using namespace std;
 namespace leveldb {
 
     class HmZone : public Zone {
     public:
-        HmZone() = default;
+        HmZone(fstream& fs):modify_zone_(fs){};
         ~HmZone(){};
-        explicit HmZone(size_t id){
-            //zone_info_ = (struct ZoneInfo*)malloc(sizeof(struct ZoneInfo));
-            zoneInfo_.id = id;
-            zoneInfo_.size = 512;
+        //need to assign: ZoneID, write_pointer, ....
+        HmZone(fstream& fs,size_t id);
+
+        //based on Zone id to open file
+        //set C++ put pointer according to the write_pointer in zone
+        Status OpenZone();
+
+        Status CloseZone();
+
+        Status FinishZone();
+
+        ZoneInfo ReportZone();
+
+        Status ResetWritePointer();
+
+        Status Read(ZoneAddress addr, const char* data) {Status s; return s;}
+
+        Status Write(ZoneAddress addr, char* data) {Status s; return s;}
+
+        string ToString() const {
+
+            string str = to_string(zoneInfo_.id);
+
+            str+=";";
+            str+=to_string(zoneInfo_.write_pointer);
+
+            str+=";";
+            str+=TypeStr[zoneInfo_.zone_type];
+
+            str+=";";
+            str+=ConditionStr[zoneInfo_.zone_condition];
+
+            str+=";";
+            str+=StateStr[zoneInfo_.zone_state];
+            return str;
         }
 
-
-        Status OpenZone() {Status s; return s;}
-
-        Status CloseZone(){Status s; return s;}
-
-        Status FinishZone(){Status s; return s;}
-
-        ZoneInfo ReportZone(){ZoneInfo z; return z;}
-
-        Status ResetWritePointer(){Status s; return s;}
-
-        // Status Read(){Status s; return s;}
-
-        // Status Write(){Status s; return s;}
-
-        Status Read(ZoneAddress addr, std::string &content) {Status s; return s;}
-
-        Status Write(ZoneAddress addr, std::string content) {Status s; return s;}
+    private:
+        fstream& modify_zone_;
     };
 
 
@@ -49,13 +66,7 @@ namespace leveldb {
         }
 
         // Create a new zone.
-        Status NewZone() {
-            Status status;
-            HmZone hmZone(next_zone_id_);
-            auto it = zones_.emplace(next_zone_id_, hmZone);
-            ++next_zone_id_;
-            return status;
-        }
+        Status NewZone();
 
         Status GetZone(int id, Zone &res_zone) {
             Status status;
@@ -83,6 +94,8 @@ namespace leveldb {
             return status;
         }
 
+        Status InitZNS(const char* dir_name);
+        Status InitZone(const char *path, const char *filename,  char *filepath);
     private:
         int next_zone_id_ = 0;
         std::map<int, HmZone> zones_;
