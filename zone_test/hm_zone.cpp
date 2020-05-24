@@ -87,7 +87,7 @@ Status HmZone::ZoneWrite(ZoneAddress addr, const char *data) {
         return status;
     }
     //only "ios::out" rather than "ios::out|ios::in"
-    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::out);
+    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::out|ios::binary);
     if(!modify_zone_.is_open()){
         status = Status::NotFound("[hm_zone.cpp] [ZoneWrite] OpenZone failed, zone id: "+ to_string(zoneInfo_.id));
         return status;
@@ -123,7 +123,8 @@ Status HmZone::ZoneRead(ZoneAddress addr, char *data) {
     Status status;
 
     status = OpenZone();
-    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::in);
+    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::in|ios::binary);
+
     if(!modify_zone_.is_open()){
         status = Status::NotFound("[hm_zone.cpp] [ZoneRead] OpenZone failed, zone id: "+ to_string(zoneInfo_.id));
         return status;
@@ -177,12 +178,13 @@ Status HmZoneNamespace::Read(ZoneAddress addr,  char *data) {
     }
 
     // call target zone's zone write function
-    status = read_zone.ZoneWrite(addr,data);
+    status = read_zone.ZoneRead(addr,data);
     if(!status.ok()) {
         cout<<status.ToString()<<endl;
         status = Status::NotFound("[hm_zone.cpp] [Read] in ZNS read, ReadZone failed, zone id: " + to_string(addr.zone_id));
         return status;
     }
+    return status;
 }
 
 Status HmZoneNamespace::NewZone(){

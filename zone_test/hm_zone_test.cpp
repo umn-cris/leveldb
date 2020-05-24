@@ -34,7 +34,7 @@ int main() {
     ZoneAddress zoneAddress;
     zoneAddress.zone_id = 0;
     zoneAddress.offset = 0;
-    const char test[] = "this is a test";
+    const char test[] = "that is a test";
     zoneAddress.length = sizeof(test);
     cout<<"~~~~~~write~~~~~~~~"<<endl;
     status = hmZoneNamespace.Write(zoneAddress,test);
