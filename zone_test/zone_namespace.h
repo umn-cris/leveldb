@@ -56,10 +56,10 @@ public:
     virtual Status ResetWritePointer()=0;
 
     // virtual Status Read()=0;
-    virtual Status Read(ZoneAddress addr, std::string &content) = 0;
+    virtual Status ZoneRead(ZoneAddress addr,  char* data) = 0;
 
     // virtual Status Write()=0;
-    virtual Status Write(ZoneAddress addr, std::string content) = 0;
+    virtual Status ZoneWrite(ZoneAddress addr, const char* data) = 0;
 
 
 protected:
@@ -89,6 +89,9 @@ public:
     virtual Status InitZNS(const char* dir_name) = 0;
 
     virtual Status InitZone(const char *path, const char *filename,  char *filepath) = 0;
+
+    virtual Status Write(ZoneAddress addr, const char* data) = 0;
+    virtual Status Read(ZoneAddress addr,  char* data) = 0;
 
     // virtual Status Write(ZoneAddress addr, string content) = 0;
 };

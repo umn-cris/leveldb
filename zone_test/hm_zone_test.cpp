@@ -30,25 +30,22 @@ int main() {
 
     HmZoneNamespace hmZoneNamespace;
     hmZoneNamespace.NewZone();
-    fstream fs;
-    HmZone test_zone(fs);
-    hmZoneNamespace.GetZone(0,test_zone);
 
-    test_zone.OpenZone();
-    ZoneInfo info = test_zone.ReportZone();
+    ZoneAddress zoneAddress;
+    zoneAddress.zone_id = 0;
+    zoneAddress.offset = 0;
+    const char test[] = "that is a test";
+    zoneAddress.length = sizeof(test);
+    cout<<"~~~~~~write~~~~~~~~"<<endl;
+    status = hmZoneNamespace.Write(zoneAddress,test);
+    cout<<status.ToString()<<endl;
+    cout<<"~~~~~~~~~~~read~~~~~~~~~~~"<<endl;
+    char result[zoneAddress.length];
+    hmZoneNamespace.Read(zoneAddress,result);
+    cout<<status.ToString()<<endl;
+    cout<<result<<endl;
 
 
-    test_zone.FinishZone();
-    info = test_zone.ReportZone();
-    // print whatever you want to check
-    //cout<<info.write_pointer<<" "<<info.size<<endl;
-    test_zone.ResetWritePointer();
-    info = test_zone.ReportZone();
-    //cout<<info.write_pointer<<" "<<info.size<<endl;
-    test_zone.CloseZone();
-
-    //TODO rerun test program to reopen zone files
-    //TODO check ZNS function
     delete db;
     return 0;
 }

@@ -9,7 +9,7 @@
 using namespace std;
 using namespace leveldb;
 string path = "hm_zones_";
-
+const bool if_debug = true;
 HmZone::HmZone(fstream& fs,size_t id):modify_zone_(fs){
     //zone_info_ = (struct ZoneInfo*)malloc(sizeof(struct ZoneInfo));
     zoneInfo_.id = id;
@@ -18,34 +18,23 @@ HmZone::HmZone(fstream& fs,size_t id):modify_zone_(fs){
     zoneInfo_.zone_condition = CLOSED;
     zoneInfo_.zone_state = SEQUENTIAL;
     modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::out);
-    modify_zone_<<ToString()<<endl;
+    if(!modify_zone_.is_open()) cout<<"[hm_zone.cpp] [HmZone] create zone file failed"<<endl;
+    //modify_zone_<<ToString()<<endl;
     modify_zone_.close();
-    cout<<"create zone"<<endl;
+    if(if_debug) cout<<"create zone "<<zoneInfo_.id<<endl;
 }
 
-
+// for correctness, OpenZone only change zone state. Zone file will only be open when data will be written or read from zone file
 Status HmZone::OpenZone() {
     Status status;
-    modify_zone_.open(path+"/"+to_string(zoneInfo_.id), ios::out|ios::in);
+    /*modify_zone_.open(path+"/"+to_string(zoneInfo_.id), ios::out|ios::in);
     if(!modify_zone_.is_open()){
-        status = Status::NotFound("Open zone failed");
-        cout<<"[hm_zone.cpp] [OpenZone] open zone "<<zoneInfo_.id<<" failed"<<endl;
-    }
+        status = Status::NotFound("[hm_zone.cpp] [OpenZone] Open zone failed, zone id: "+ to_string(zoneInfo_.id));
+        return status;
+    }*/
     zoneInfo_.zone_condition = OPEN;
-    modify_zone_.seekp(zoneInfo_.write_pointer);
     status = Status::OK();
-    cout<<"open zone"<<endl;
-    return status;
-}
-
-Status HmZone::CloseZone() {
-    Status status;
-    zoneInfo_.zone_condition=CLOSED;
-    modify_zone_.seekp(0,ios::beg);
-    modify_zone_<<ToString()<<endl;
-    modify_zone_.close();
-    status = Status::OK();
-    cout<<"close zone"<<endl;
+    if(if_debug) cout<<"open zone "<<zoneInfo_.id<<endl;
     return status;
 }
 
@@ -53,17 +42,13 @@ Status HmZone::FinishZone() {
     Status status;
     zoneInfo_.write_pointer = ZONESIZE;
     zoneInfo_.size = ZONESIZE;
-    modify_zone_.seekp(0,ios::beg);
-    modify_zone_<<ToString()<<endl;
-
-    // no close here!
     status = Status::OK();
-    cout<<"finishe zone"<<endl;
+    if(if_debug) cout<<"finishe zone "<<zoneInfo_.id<<endl;
     return status;
 }
 
 ZoneInfo HmZone::ReportZone() {
-    cout<<"report zone"<<endl;
+    if(if_debug) cout<<"report zone "<<zoneInfo_.id<<endl;
     return zoneInfo_;
 }
 
@@ -71,11 +56,134 @@ Status HmZone:: ResetWritePointer(){
     Status status;
     zoneInfo_.write_pointer = 0;
     zoneInfo_.size = 0;
-    modify_zone_.seekp(0,ios::beg);
-    modify_zone_<<ToString()<<endl;
+    //modify_zone_.seekp(0,ios::beg);
+    //modify_zone_<<ToString()<<endl;
     // no close here!
     status = Status::OK();
-    cout<<"reset write pointer"<<endl;
+    if(if_debug) cout<<"reset write pointer "<<zoneInfo_.id<<endl;
+    return status;
+}
+
+//same reason with OpenZone, when finish writing or read  data from zone file, it will be closed rather than here
+Status HmZone::CloseZone() {
+    Status status;
+    zoneInfo_.zone_condition=CLOSED;
+    //modify_zone_.seekp(0,ios::beg);
+    //modify_zone_<<ToString()<<endl;
+    //modify_zone_.close();
+    status = Status::OK();
+    if(if_debug) cout<<"close zone "<<zoneInfo_.id<<endl;
+    return status;
+}
+
+Status HmZone::ZoneWrite(ZoneAddress addr, const char *data) {
+    Status status;
+    // to write data in zone file, first open it
+    // only change zone state, open operation will be handle manually in next line
+    // this will help avoid unexpected bug (i.e., avoid opening a file both for read and write, and reset read/write pointer at the same time)
+    status = OpenZone();
+    if(zoneInfo_.write_pointer+addr.length > ZONESIZE){
+        status = Status::InvalidArgument("[hm_zone.cpp] [ZoneWrite] WriteZone failed, reach end of zone file, zone id: "+ to_string(zoneInfo_.id));
+        return status;
+    }
+    //only "ios::out" rather than "ios::out|ios::in"
+    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::out|ios::binary);
+    if(!modify_zone_.is_open()){
+        status = Status::NotFound("[hm_zone.cpp] [ZoneWrite] OpenZone failed, zone id: "+ to_string(zoneInfo_.id));
+        return status;
+    }
+
+    // if comes a non-sequential write request
+    if(addr.offset != zoneInfo_.write_pointer){
+        //for a sequential required zone,
+        if(zoneInfo_.zone_type == SEQUENTIAL_WRITE_REQUIRED){
+            cout<<""<<endl;
+            status.NotSupported("[hm_zone.cpp] [ZoneWrite] it is not a sequential write, sequential write required. Zone id: " + to_string(addr.zone_id));
+            return status;
+        }
+        else if(zoneInfo_.zone_type == SEQUENTIAL_WRITE_PREFERRED){
+            zoneInfo_.zone_state = NON_SEQUENTIAL;
+        }
+        zoneInfo_.write_pointer = addr.offset;
+    }
+    modify_zone_.seekp(addr.offset);
+    modify_zone_.write(data,addr.length);
+    if(!modify_zone_.good()){
+        if(modify_zone_.fail())
+            status = Status::InvalidArgument("[hm_zone.cpp] [ZoneWrite] WriteZone failed, no remain space / write mode error / format error... zone id: "+ to_string(zoneInfo_.id));
+        else
+            status = Status::InvalidArgument("[hm_zone.cpp] [ZoneWrite] WriteZone failed, unknown reasons, need further checking. zone id: "+ to_string(zoneInfo_.id));
+    }
+    modify_zone_.close();
+    return status;
+}
+
+
+Status HmZone::ZoneRead(ZoneAddress addr, char *data) {
+    Status status;
+
+    status = OpenZone();
+    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::in|ios::binary);
+
+    if(!modify_zone_.is_open()){
+        status = Status::NotFound("[hm_zone.cpp] [ZoneRead] OpenZone failed, zone id: "+ to_string(zoneInfo_.id));
+        return status;
+    }
+
+    modify_zone_.seekg(addr.offset);
+    modify_zone_.read(data,addr.length);
+    if(!modify_zone_.good()){
+        if(modify_zone_.eof())
+            status = Status::InvalidArgument("[hm_zone.cpp] [ZoneRead] ReadZone failed, reach end of zone file, zone id: "+ to_string(zoneInfo_.id));
+        else if(modify_zone_.fail())
+            status = Status::InvalidArgument("[hm_zone.cpp] [ZoneRead] ReadZone failed, no remain space / read mode error / format error... zone id: "+ to_string(zoneInfo_.id));
+    }
+    modify_zone_.close();
+    return status;
+}
+
+Status HmZoneNamespace::Write(ZoneAddress addr, const char *data) {
+    Status status;
+    fstream fs;
+    HmZone write_zone(fs);
+
+    // get target zone
+    status = GetZone(addr.zone_id,write_zone);
+    if(!status.ok()) {
+        cout<<status.ToString()<<endl;
+        status = Status::NotFound("[hm_zone.cpp] [Write] in ZNS write, GetZone failed, zone id: " + to_string(addr.zone_id));
+        return status;
+    }
+
+    // call target zone's zone write function
+    status = write_zone.ZoneWrite(addr,data);
+    if(!status.ok()) {
+        cout<<status.ToString()<<endl;
+        status = Status::NotFound("[hm_zone.cpp] [Write] in ZNS write, WriteZone failed, zone id: " + to_string(addr.zone_id));
+        return status;
+    }
+}
+
+Status HmZoneNamespace::Read(ZoneAddress addr,  char *data) {
+    Status status;
+    fstream fs;
+    HmZone read_zone(fs);
+
+    // get target zone
+    status = GetZone(addr.zone_id,read_zone);
+    if(!status.ok()) {
+        cout<<status.ToString()<<endl;
+        status = Status::NotFound("[hm_zone.cpp] [Read] in ZNS read, GetZone failed, zone id: " + to_string(addr.zone_id));
+        return status;
+    }
+
+    // call target zone's zone write function
+    status = read_zone.ZoneRead(addr,data);
+    if(!status.ok()) {
+        cout<<status.ToString()<<endl;
+        status = Status::NotFound("[hm_zone.cpp] [Read] in ZNS read, ReadZone failed, zone id: " + to_string(addr.zone_id));
+        return status;
+    }
     return status;
 }
 
@@ -83,9 +191,15 @@ Status HmZoneNamespace::NewZone(){
     Status status;
     fstream fs;
     auto it = zones_.emplace(next_zone_id_, HmZone(fs,next_zone_id_));
+    if(!it.second){
+        status = Status::InvalidArgument("[hm_zone.cpp] [NewZone] already has a zone in ZNS, zone id: "+to_string(next_zone_id_));
+        return status;
+    }
     ++next_zone_id_;
+    status = Status::OK();
     return status;
 }
+
 Status HmZoneNamespace:: InitZone(const char *path, const char *filename,  char *filepath){
     strcpy(filepath, path);
     if(filepath[strlen(path) - 1] != '/')
