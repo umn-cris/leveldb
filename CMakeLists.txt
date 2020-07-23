@@ -193,6 +193,8 @@ target_sources(leveldb
     "zone_test/hm_zone.cpp"
     "zone_test/dm_zone.h"
     "zone_test/dm_zone.cpp"
+    "zone_test/zone_mapping.h"
+    "zone_test/zone_mapping.cpp"
   # Only CMake 3.3+ supports PUBLIC sources in targets exported by "install".
   $<$<VERSION_GREATER:CMAKE_VERSION,3.2>:PUBLIC>
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/c.h"
@@ -222,6 +224,7 @@ else (WIN32)
   target_sources(leveldb
     PRIVATE
       "util/env_posix.cc"
+      "util/env_zns.cc"
       "util/posix_logger.h"
   )
 endif (WIN32)
