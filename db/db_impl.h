@@ -9,7 +9,7 @@
 #include <deque>
 #include <set>
 #include <string>
-#include <bits/unique_ptr.h>
+//#include <bits/unique_ptr.h>
 
 #include "db/dbformat.h"
 #include "db/log_writer.h"

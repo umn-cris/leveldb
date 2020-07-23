@@ -33,3 +33,5 @@ build/*
 *.app
 include/.DS_Store
 .DS_Store
+.vscode
+.vscode/*

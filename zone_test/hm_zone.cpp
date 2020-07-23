@@ -162,6 +162,7 @@ Status HmZoneNamespace::Write(ZoneAddress addr, const char *data) {
         status = Status::NotFound("[hm_zone.cpp] [Write] in ZNS write, WriteZone failed, zone id: " + to_string(addr.zone_id));
         return status;
     }
+    return status;
 }
 
 Status HmZoneNamespace::Read(ZoneAddress addr,  char *data) {
@@ -206,6 +207,7 @@ Status HmZoneNamespace:: InitZone(const char *path, const char *filename,  char 
         strcat(filepath, "/");
     strcat(filepath, filename);
     printf("[hm_zone.cpp] [InitZone] path is = %s\n",filepath);
+    return Status::OK();
 }
 //delete all zone files left, create a new zone env
 Status HmZoneNamespace::InitZNS(const char * dir_name){
@@ -263,4 +265,3 @@ Status HmZoneNamespace::InitZNS(const char * dir_name){
 HmZoneNamespace::HmZoneNamespace() {
     InitZNS(path.c_str());
 }
-    
