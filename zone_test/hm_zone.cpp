@@ -9,8 +9,7 @@
 using namespace std;
 using namespace leveldb;
 string path = "hm_zones_";
-const bool if_debug = true;
-HmZone::HmZone(fstream& fs,size_t id):modify_zone_(fs){
+/*HmZone::HmZone(fstream& fs,size_t id):modify_zone_(fs){
     //zone_info_ = (struct ZoneInfo*)malloc(sizeof(struct ZoneInfo));
     zoneInfo_.id = id;
     zoneInfo_.write_pointer = 0;
@@ -21,7 +20,21 @@ HmZone::HmZone(fstream& fs,size_t id):modify_zone_(fs){
     if(!modify_zone_.is_open()) cout<<"[hm_zone.cpp] [HmZone] create zone file failed"<<endl;
     //modify_zone_<<ToString()<<endl;
     modify_zone_.close();
-    if(if_debug) cout<<"create zone "<<zoneInfo_.id<<endl;
+    //if(if_debug) cout<<"create zone "<<zoneInfo_.id<<endl;
+}*/
+HmZone::HmZone(fstream& fs,size_t id){
+    //zone_info_ = (struct ZoneInfo*)malloc(sizeof(struct ZoneInfo));
+    zoneInfo_.id = id;
+    zoneInfo_.write_pointer = 0;
+    zoneInfo_.zone_type = SEQUENTIAL_WRITE_REQUIRED;
+    zoneInfo_.zone_condition = CLOSED;
+    zoneInfo_.zone_state = SEQUENTIAL;
+    fstream modify_zone_;
+    modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::out);
+    if(!modify_zone_.is_open()) cout<<"[hm_zone.cpp] [HmZone] create zone file failed"<<endl;
+    //modify_zone_<<ToString()<<endl;
+    modify_zone_.close();
+    //if(if_debug) cout<<"create zone "<<zoneInfo_.id<<endl;
 }
 
 // for correctness, OpenZone only change zone state. Zone file will only be open when data will be written or read from zone file
@@ -86,6 +99,7 @@ Status HmZone::ZoneWrite(ZoneAddress addr, const char *data) {
         status = Status::InvalidArgument("[hm_zone.cpp] [ZoneWrite] WriteZone failed, reach end of zone file, zone id: "+ to_string(zoneInfo_.id));
         return status;
     }
+    fstream modify_zone_;
     //only "ios::out" rather than "ios::out|ios::in"
     modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::out|ios::binary);
     if(!modify_zone_.is_open()){
@@ -106,7 +120,8 @@ Status HmZone::ZoneWrite(ZoneAddress addr, const char *data) {
         }
         zoneInfo_.write_pointer = addr.offset;
     }
-    modify_zone_.seekp(addr.offset);
+    modify_zone_.seekp(0);
+    //if(modify_zone_.tellp() != addr.offset) modify_zone_.seekp(addr.offset);
     modify_zone_.write(data,addr.length);
     if(!modify_zone_.good()){
         if(modify_zone_.fail())
@@ -121,7 +136,7 @@ Status HmZone::ZoneWrite(ZoneAddress addr, const char *data) {
 
 Status HmZone::ZoneRead(ZoneAddress addr, char *data) {
     Status status;
-
+    fstream modify_zone_;
     status = OpenZone();
     modify_zone_.open(path+"/"+to_string(zoneInfo_.id),ios::in|ios::binary);
 
@@ -142,7 +157,7 @@ Status HmZone::ZoneRead(ZoneAddress addr, char *data) {
     return status;
 }
 
-Status HmZoneNamespace::Write(ZoneAddress addr, const char *data) {
+/*Status HmZoneNamespace::Write(ZoneAddress addr, const char *data) {
     Status status;
     fstream fs;
     HmZone write_zone(fs);
@@ -163,9 +178,9 @@ Status HmZoneNamespace::Write(ZoneAddress addr, const char *data) {
         return status;
     }
     return status;
-}
+}*/
 
-Status HmZoneNamespace::Read(ZoneAddress addr,  char *data) {
+/*Status HmZoneNamespace::Read(ZoneAddress addr,  char *data) {
     Status status;
     fstream fs;
     HmZone read_zone(fs);
@@ -186,12 +201,15 @@ Status HmZoneNamespace::Read(ZoneAddress addr,  char *data) {
         return status;
     }
     return status;
-}
+}*/
 
 Status HmZoneNamespace::NewZone(){
     Status status;
     fstream fs;
-    auto it = zones_.emplace(next_zone_id_, HmZone(fs,next_zone_id_));
+    //begin: modification for shared_ptr
+    shared_ptr<HmZone> zone_ptr(new HmZone(fs,next_zone_id_));
+    auto it = zones_.emplace(next_zone_id_, zone_ptr);
+    //end
     if(!it.second){
         status = Status::InvalidArgument("[hm_zone.cpp] [NewZone] already has a zone in ZNS, zone id: "+to_string(next_zone_id_));
         return status;
@@ -201,15 +219,16 @@ Status HmZoneNamespace::NewZone(){
     return status;
 }
 
+// a filepath completion function, used in "InitZNS"
 Status HmZoneNamespace:: InitZone(const char *path, const char *filename,  char *filepath){
     strcpy(filepath, path);
     if(filepath[strlen(path) - 1] != '/')
         strcat(filepath, "/");
     strcat(filepath, filename);
-    printf("[hm_zone.cpp] [InitZone] path is = %s\n",filepath);
+    //printf("[hm_zone.cpp] [InitZone] path is = %s\n",filepath);
     return Status::OK();
 }
-//delete all zone files left, create a new zone env
+//delete all zone files left, create a new zone env (creat zone file, file number is an adjustable parameter)
 Status HmZoneNamespace::InitZNS(const char * dir_name){
     // check if dir_name is a valid dir
     Status status;
@@ -248,8 +267,9 @@ Status HmZoneNamespace::InitZNS(const char * dir_name){
         if( strcmp( filename->d_name , "." ) == 0 ||
             strcmp( filename->d_name , "..") == 0    )
             continue;
-        if( remove(filepath) == 0 )
-            printf("Removed %s.\n", filepath);
+        if( remove(filepath) == 0 ){
+            //printf("Removed %s.\n", filepath);
+        }
         else
             perror("remove fail");
         /*int zone_id = atol(filename->d_name);
@@ -258,6 +278,15 @@ Status HmZoneNamespace::InitZNS(const char * dir_name){
         InitZone(filename->d_name, hmZone);
         zones_.emplace(zone_id,hmZone);*/
     }
+    // recreate new zone files, file number is predefined
+    for (int i = 0; i < ZONEFile_NUMBER; ++i) {
+        status = NewZone();
+        if(!status.ok()) {
+            cout<<status.ToString()<<endl;
+            status = Status::Corruption("[hm_zone.cpp] [InitZNS] in ZNS Initialization, create new zone file failed, zone id: " + to_string(next_zone_id_));
+            return status;
+        }
+    }
     status = Status::OK();
     return status;
 }
@@ -265,3 +294,5 @@ Status HmZoneNamespace::InitZNS(const char * dir_name){
 HmZoneNamespace::HmZoneNamespace() {
     InitZNS(path.c_str());
 }
+
+

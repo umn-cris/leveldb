@@ -6,13 +6,14 @@
 #define LEVELDB_HM_ZONE_H
 #include "zone_namespace.h"
 #include <fstream>
-//TODO write pointer position look up
+
 using namespace std;
 namespace leveldb {
 
     class HmZone : public Zone {
     public:
-        HmZone(fstream& fs):modify_zone_(fs){};
+        //HmZone(fstream& fs):modify_zone_(fs){};
+        HmZone(fstream& fs){};
         ~HmZone(){};
         //need to assign: ZoneID, write_pointer, ....
         HmZone(fstream& fs,size_t id);
@@ -52,7 +53,7 @@ namespace leveldb {
         }
 
     private:
-        fstream& modify_zone_;
+        //fstream& modify_zone_;
     };
 
 
@@ -61,6 +62,10 @@ namespace leveldb {
         HmZoneNamespace();
         ~HmZoneNamespace()= default;
 
+        static shared_ptr<HmZoneNamespace> CreatZoneNamespace(){
+            return shared_ptr<HmZoneNamespace>(new HmZoneNamespace());
+        }
+
         size_t GetZoneCount() override{
             return zones_.size();
         }
@@ -68,16 +73,18 @@ namespace leveldb {
         // Create a new zone.
         Status NewZone() override;
 
-        Status GetZone(int id, Zone &res_zone) override{
-            Status status;
+        shared_ptr<HmZone> GetZone(int id){
+            //Status status;
+            shared_ptr<HmZone> res_zone;
             auto it = zones_.find(id);
             if (it != zones_.end()) {
                 res_zone = it->second;
-                status = Status::OK();
+                //status = Status::OK();
             } else {
-                status = Status::NotFound("[Zone_namespace.h] [RemoveZone] no zone to get, zone id: "+ to_string(id));
+                cerr<<"no such zone, id: "<<id<<endl;
+                //status = Status::NotFound("[Zone_namespace.h] [RemoveZone] no zone to get, zone id: "+ to_string(id));
             }
-            return status;
+            return res_zone;
         }
 
         Status RemoveZone(int id) override{
@@ -94,11 +101,11 @@ namespace leveldb {
 
         Status InitZNS(const char* dir_name) override;
         Status InitZone(const char *path, const char *filename,  char *filepath) override;
-        Status Write(ZoneAddress addr, const char* data) override;
-        Status Read(ZoneAddress addr,  char* data) override;
+        //Status Write(ZoneAddress addr, const char* data) override;
+        //Status Read(ZoneAddress addr,  char* data) override;
     private:
         int next_zone_id_ = 0;
-        std::map<int, HmZone> zones_;
+        std::map<int, shared_ptr<HmZone>> zones_;
     };
 }
 #endif //LEVELDB_HM_ZONE_H
