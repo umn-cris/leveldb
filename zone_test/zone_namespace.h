@@ -7,7 +7,13 @@
 #include <iostream>
 #include <list>
 #include "leveldb/status.h"
+#include <memory>
+#include <tr1/memory>
+#include <bits/shared_ptr.h>
 static const size_t ZONESIZE = 512*1024*1024;
+const bool if_debug = true;
+const long ZONEFile_NUMBER = 5;
+
 namespace leveldb {
 
 enum ZoneType {CONVENTIONAL, SEQUENTIAL_WRITE_PREFERRED, SEQUENTIAL_WRITE_REQUIRED};
@@ -84,14 +90,14 @@ public:
     // Remove an existing zone based on its id.
     virtual Status RemoveZone(int id) = 0;
 
-    virtual Status GetZone(int id, Zone& res_zone) = 0;
+    //virtual Status GetZone(int id, std::shared_ptr<Zone>* zone_ptr) = 0;
 
     virtual Status InitZNS(const char* dir_name) = 0;
 
     virtual Status InitZone(const char *path, const char *filename,  char *filepath) = 0;
 
-    virtual Status Write(ZoneAddress addr, const char* data) = 0;
-    virtual Status Read(ZoneAddress addr,  char* data) = 0;
+    //virtual Status Write(ZoneAddress addr, const char* data) = 0;
+    //virtual Status Read(ZoneAddress addr,  char* data) = 0;
 
     // virtual Status Write(ZoneAddress addr, string content) = 0;
 };

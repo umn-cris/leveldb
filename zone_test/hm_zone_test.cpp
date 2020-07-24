@@ -27,9 +27,7 @@ int main() {
     status = db->Get(ReadOptions(), "KeyNameExample", &res);
     assert(status.ok());
     cout << res << endl;
-
-    HmZoneNamespace hmZoneNamespace;
-    hmZoneNamespace.NewZone();
+    
 
     ZoneAddress zoneAddress;
     zoneAddress.zone_id = 0;
@@ -37,12 +35,13 @@ int main() {
     const char test[] = "that is a test";
     zoneAddress.length = sizeof(test);
     cout<<"~~~~~~write~~~~~~~~"<<endl;
-    status = hmZoneNamespace.Write(zoneAddress,test);
-    cout<<status.ToString()<<endl;
+    shared_ptr<HmZoneNamespace> hmzonenamespace = HmZoneNamespace::CreatZoneNamespace();
+    shared_ptr<HmZone> hmzone = hmzonenamespace->GetZone(0);
+    hmzone->ZoneWrite(zoneAddress,test);
+
     cout<<"~~~~~~~~~~~read~~~~~~~~~~~"<<endl;
     char result[zoneAddress.length];
-    hmZoneNamespace.Read(zoneAddress,result);
-    cout<<status.ToString()<<endl;
+    hmzone->ZoneRead(zoneAddress,result);
     cout<<result<<endl;
 
 
