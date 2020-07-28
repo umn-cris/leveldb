@@ -15,13 +15,12 @@ ZoneMapping::ZoneMapping(std::shared_ptr<ZoneNamespace> zns, int zone_num) {
     ZnsZoneInfo z_info;
     std::unordered_map<std::string, ZnsFileInfo*> tmp_map;
     z_info.zone_id = i;
-    //z_info.zone_ptr = zns_ptr_->GetZone(i);
-    z_info.valid_size = 0;
+    z_info.zone_ptr = zns_ptr_->GetZone(i);
     z_info.valid_size = 0;
     z_info.files_map = tmp_map;
+    z_info.valid_file_num = 0;
     zone_list_.push_back(z_info);
   }
-
   // store the zone pointers in the empty_zones_
   for(int i = 0; i < zone_num_; i++) {
     empty_zones_.insert(std::make_pair(i, &zone_list_[i]));
@@ -34,13 +33,16 @@ Status ZoneMapping::GetAndUseOneEmptyZone(ZnsZoneInfo** z_info_ptr) {
   }
 
   auto tmp = empty_zones_.begin();
-  z_info_ptr = &(tmp->second);
+  if (tmp == empty_zones_.end()) {
+    return Status::NotFound("invalid");
+  }
+  *z_info_ptr = tmp->second;
   empty_zones_.erase(tmp->second->zone_id);
   used_zones_.insert(std::make_pair(tmp->second->zone_id, tmp->second));
   return Status::OK();
 }
 
-Status ZoneMapping::CreateFileOnZone(Env* env, std::string file_name, int zone_id, int& offset) {
+Status ZoneMapping::CreateFileOnZone(Env* env, std::string file_name, int zone_id, size_t& offset) {
   auto found = files_map_.find(file_name);
   auto z = used_zones_.find(zone_id);
   if (found != files_map_.end() || z == used_zones_.end()) {
@@ -61,6 +63,7 @@ Status ZoneMapping::CreateFileOnZone(Env* env, std::string file_name, int zone_i
   tmp_info.delete_time = 0;
   files_map_.insert(std::make_pair(file_name, tmp_info));
   z->second->files_map.insert(std::make_pair(file_name, &(files_map_[file_name])));
+  offset = tmp_info.offset;
   return Status::OK();
 }
 
@@ -107,11 +110,6 @@ Status ZoneMapping::CloseFileOnZone(std::string file_name) {
     return Status::Corruption("invalid");
   }
   found->second.f_stat = ZnsFileStat::kClosed;
-
-  // Only when the file is closed, we think the write is done
-  // So the data is valid for the zone, otherwise, it is invalid
-  // can be cleaned.
-  z->second->valid_size += found->second.length;
   return Status::OK();
 }
 
@@ -176,6 +174,15 @@ Status ZoneMapping::WriteFileOnZone(std::string file_name,
   // Updates the metadata
   found->second.length += len;
   z->second->valid_size += len;
+  return Status::OK();
+}
+
+Status ZoneMapping::GetZnsFileInfo(std::string file_name, ZnsFileInfo* file_ptr) {
+  auto found = files_map_.find(file_name);
+  if (found == files_map_.end()) {
+    return Status::NotFound("Not find");
+  }
+  *file_ptr = found->second;
   return Status::OK();
 }
 

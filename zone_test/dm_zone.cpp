@@ -211,6 +211,7 @@ Status DmZoneNamespace:: InitZone(const char *path, const char *filename,  char 
         strcat(filepath, "/");
     strcat(filepath, filename);
     printf("[Dm_zone.cpp] [InitZone] path is = %s\n",filepath);
+    return Status::OK();
 }
 //delete all zone files left, create a new zone env
 Status DmZoneNamespace::InitZNS(const char * dir_name){
@@ -277,5 +278,3 @@ Status DmZoneNamespace::InitZNS(const char * dir_name){
 DmZoneNamespace::DmZoneNamespace() {
     InitZNS(path.c_str());
 }
-
-

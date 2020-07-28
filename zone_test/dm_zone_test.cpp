@@ -19,7 +19,7 @@ int main() {
     zoneAddress.length = sizeof(test);
     cout<<"~~~~~~write~~~~~~~~"<<endl;
     shared_ptr<DmZoneNamespace> dmzonenamespace = DmZoneNamespace::CreatZoneNamespace();
-    shared_ptr<DmZone> dmzone = dmzonenamespace->GetZone(0);
+    shared_ptr<Zone> dmzone = dmzonenamespace->GetZone(0);
     dmzone->ZoneWrite(zoneAddress,test);
 
     cout<<"~~~~~~~~~~~read~~~~~~~~~~~"<<endl;
@@ -27,6 +27,6 @@ int main() {
     dmzone->ZoneRead(zoneAddress,result);
     cout<<result<<endl;
 
-    
+
     return 0;
 }
