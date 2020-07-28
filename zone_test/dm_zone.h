@@ -76,9 +76,9 @@ namespace leveldb {
         // Create a new zone.
         Status NewZone() override;
 
-        shared_ptr<DmZone> GetZone(int id) {
+        shared_ptr<Zone> GetZone(int id) override {
             Status status;
-            shared_ptr<DmZone> res_zone;
+            shared_ptr<Zone> res_zone;
             auto it = zones_.find(id);
             if (it != zones_.end()) {
                 res_zone = it->second;

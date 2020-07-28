@@ -41,13 +41,18 @@ namespace leveldb
     size_t valid_size;
     int valid_file_num;
     std::unordered_map<std::string, ZnsFileInfo *> files_map;
+
+    size_t GetWritePointerOffset() {
+      ZoneInfo z_info = zone_ptr->ReportZone();
+      return z_info.write_pointer;
+    }
   };
 
   class ZoneMapping
   {
   public:
     ZoneMapping(std::shared_ptr<ZoneNamespace> zns, int zone_num);
-    ~ZoneMapping();
+    ~ZoneMapping() {};
     // must be called before this zone is used for write
     // called by the log writer to hold this zone for write
     //
@@ -58,7 +63,7 @@ namespace leveldb
     // the following APIs will be directly called in ZnsEnv
     // Log writer is the control (with lock) of write permission
     // and where to write.
-    Status CreateFileOnZone(Env* env, std::string file_name, int zone_id, int& offset);
+    Status CreateFileOnZone(Env* env, std::string file_name, int zone_id, size_t& offset);
 
     Status DeleteFileOnZone(Env* env, std::string file_name);
 
@@ -67,6 +72,8 @@ namespace leveldb
     Status ReadFileOnZone(std::string file_name, size_t offset, size_t len, const char *buffer);
 
     Status WriteFileOnZone(std::string file_name, size_t len, const char *buffer);
+
+    Status GetZnsFileInfo(std::string file_name, ZnsFileInfo* file_ptr);
 
     // This function suggested to be called before other file related are called
     bool IsFileInZone(std::string file_name);

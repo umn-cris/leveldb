@@ -8,8 +8,8 @@
 #include <list>
 #include "leveldb/status.h"
 #include <memory>
-#include <tr1/memory>
-#include <bits/shared_ptr.h>
+//#include <tr1/memory>
+//#include <bits/shared_ptr.h>
 static const size_t ZONESIZE = 512*1024*1024;
 const bool if_debug = true;
 const long ZONEFile_NUMBER = 5;
@@ -91,6 +91,7 @@ public:
     virtual Status RemoveZone(int id) = 0;
 
     //virtual Status GetZone(int id, std::shared_ptr<Zone>* zone_ptr) = 0;
+    virtual std::shared_ptr<Zone> GetZone(int id) = 0;
 
     virtual Status InitZNS(const char* dir_name) = 0;
 
