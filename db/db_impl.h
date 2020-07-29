@@ -19,6 +19,7 @@
 #include "port/port.h"
 #include "port/thread_annotations.h"
 #include "util/logging.h"
+#include "zone_test/zns_file_writer.h"
 
 namespace leveldb {
 
@@ -206,6 +207,10 @@ class DBImpl : public DB {
   Status bg_error_ GUARDED_BY(mutex_);
 
   CompactionStats stats_[config::kNumLevels] GUARDED_BY(mutex_);
+
+  ZoneMapping* zone_mapping_ = GetDefaultZoneMapping();
+
+  ZnsFileWriterManager* zfm_manager_ = GetDefualtZnsFileWriterManager();
 };
 
 // Sanitize db options.  The caller should delete result.info_log if
