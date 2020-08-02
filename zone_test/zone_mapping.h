@@ -87,5 +87,7 @@ namespace leveldb
     int zone_num_;
   };
 
+extern ZoneMapping* GetDefaultZoneMapping();
+
 } // namespace leveldb
 #endif

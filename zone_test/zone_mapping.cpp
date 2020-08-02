@@ -3,6 +3,7 @@
 //
 
 #include "zone_mapping.h"
+#include "hm_zone.h"
 
 namespace leveldb {
 
@@ -196,6 +197,12 @@ bool ZoneMapping::IsFileInZone(std::string file_name) {
     return false;
   }
   return true;
+}
+
+ZoneMapping* GetDefaultZoneMapping() {
+  std::shared_ptr<ZoneNamespace> zns_ptr = HmZoneNamespace::CreatZoneNamespace();
+  static ZoneMapping* zm_ptr = new ZoneMapping(zns_ptr, ZONEFile_NUMBER);
+  return zm_ptr;
 }
 
 } //name space
