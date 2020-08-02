@@ -11,21 +11,38 @@ using namespace std;
 using namespace leveldb;
 
 int main() {
-
-    ZoneAddress zoneAddress;
-    zoneAddress.zone_id = 0;
-    zoneAddress.offset = 0;
-    const char test[] = "that is a test";
-    zoneAddress.length = sizeof(test);
-    cout<<"~~~~~~write~~~~~~~~"<<endl;
+    cout<<"~~~~~~create DmZoneNamespace~~~~~~~~"<<endl;
     shared_ptr<DmZoneNamespace> dmzonenamespace = DmZoneNamespace::CreatZoneNamespace();
-    shared_ptr<Zone> dmzone = dmzonenamespace->GetZone(0);
-    dmzone->ZoneWrite(zoneAddress,test);
+
+
+    cout<<"~~~~~~write~~~~~~~~"<<endl;
+    for (int i = 0; i < ZONEFile_NUMBER; ++i) {
+        shared_ptr<Zone> dmzone = dmzonenamespace->GetZone(i);
+
+        ZoneAddress zoneAddress;
+        zoneAddress.zone_id = i;
+        zoneAddress.offset = 0;
+        string str = "that is test"+to_string(i);
+        zoneAddress.length = str.size();
+        dmzone->ZoneWrite(zoneAddress,str.c_str());
+    }
+
+    dmzonenamespace->CheckGC();
 
     cout<<"~~~~~~~~~~~read~~~~~~~~~~~"<<endl;
-    char result[zoneAddress.length];
-    dmzone->ZoneRead(zoneAddress,result);
-    cout<<result<<endl;
+    for (int i = 0; i < ZONEFile_NUMBER; ++i) {
+        shared_ptr<Zone> dmzone = dmzonenamespace->GetZone(i);
+
+        ZoneAddress zoneAddress;
+        zoneAddress.zone_id = i;
+        zoneAddress.offset = 0;
+        zoneAddress.length = dmzone->zoneInfo_.size;
+        char result[dmzone->zoneInfo_.size];
+        dmzone->ZoneRead(zoneAddress,result);
+        cout<<result<<endl;
+    }
+
+
 
 
     return 0;

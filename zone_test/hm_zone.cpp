@@ -65,15 +65,17 @@ ZoneInfo HmZone::ReportZone() {
     return zoneInfo_;
 }
 
+// should not call it via shared ptr, should use zns to call
 Status HmZone:: ResetWritePointer(){
     Status status;
     zoneInfo_.write_pointer = 0;
     zoneInfo_.size = 0;
+    zoneInfo_.erase_count_++;
     //modify_zone_.seekp(0,ios::beg);
     //modify_zone_<<ToString()<<endl;
     // no close here!
     status = Status::OK();
-    if(if_debug) cout<<"reset write pointer "<<zoneInfo_.id<<endl;
+    if(if_debug) cout<<"in [hm_zone] [reset write pointer] "<<zoneInfo_.id<<endl;
     return status;
 }
 
@@ -202,6 +204,16 @@ Status HmZone::ZoneRead(ZoneAddress addr, char *data) {
     }
     return status;
 }*/
+
+// hm zone does not need any other operation, just record the erase count
+Status HmZoneNamespace::Resetptr(int id){
+    Status status;
+    shared_ptr<Zone> hmzone = GetZone(id);
+    status = hmzone->ResetWritePointer();
+    return status;
+}
+
+
 
 Status HmZoneNamespace::NewZone(){
     Status status;

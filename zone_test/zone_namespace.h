@@ -2,7 +2,7 @@
 #define ZONE_NAMESPACE_H_
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <iostream>
 #include <list>
@@ -13,7 +13,6 @@
 static const size_t ZONESIZE = 512*1024*1024;
 const bool if_debug = true;
 const long ZONEFile_NUMBER = 5;
-
 namespace leveldb {
 
 enum ZoneType {CONVENTIONAL, SEQUENTIAL_WRITE_PREFERRED, SEQUENTIAL_WRITE_REQUIRED};
@@ -35,6 +34,7 @@ struct ZoneInfo {
     size_t first_LBA = 0;
     size_t size = 0;
     size_t write_pointer = 0;
+    size_t erase_count_ = 0;
     ZoneType zone_type;
     ZoneCondition zone_condition;
     ZoneState zone_state;
@@ -67,9 +67,9 @@ public:
     // virtual Status Write()=0;
     virtual Status ZoneWrite(ZoneAddress addr, const char* data) = 0;
 
-
-protected:
     ZoneInfo zoneInfo_;
+protected:
+
     //ZoneInfo* zone_info_;
 };
 
@@ -93,6 +93,7 @@ public:
     //virtual Status GetZone(int id, std::shared_ptr<Zone>* zone_ptr) = 0;
     virtual std::shared_ptr<Zone> GetZone(int id) = 0;
 
+    virtual Status Resetptr(int id) = 0;
     virtual Status InitZNS(const char* dir_name) = 0;
 
     virtual Status InitZone(const char *path, const char *filename,  char *filepath) = 0;

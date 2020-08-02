@@ -28,6 +28,7 @@ namespace leveldb {
 
         ZoneInfo ReportZone() override;
 
+        // should not call it via shared ptr, should use zns to call
         Status ResetWritePointer() override;
 
         Status ZoneRead(ZoneAddress addr,  char* data) override;
@@ -87,6 +88,8 @@ namespace leveldb {
             return res_zone;
         }
 
+        Status Resetptr(int id) override;
+
         Status RemoveZone(int id) override{
             Status status;
             auto it = zones_.find(id);
@@ -105,7 +108,7 @@ namespace leveldb {
         //Status Read(ZoneAddress addr,  char* data) override;
     private:
         int next_zone_id_ = 0;
-        std::map<int, shared_ptr<HmZone>> zones_;
+        std::unordered_map<int, shared_ptr<HmZone>> zones_;
     };
 }
 #endif //LEVELDB_HM_ZONE_H
