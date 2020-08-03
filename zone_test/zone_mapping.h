@@ -63,9 +63,9 @@ namespace leveldb
     // the following APIs will be directly called in ZnsEnv
     // Log writer is the control (with lock) of write permission
     // and where to write.
-    Status CreateFileOnZone(Env* env, std::string file_name, int zone_id, size_t& offset);
+    Status CreateFileOnZone(uint64_t now_time, std::string file_name, int zone_id, size_t* offset);
 
-    Status DeleteFileOnZone(Env* env, std::string file_name);
+    Status DeleteFileOnZone(uint64_t now_time, std::string file_name);
 
     Status CloseFileOnZone(std::string file_name);
 
@@ -88,6 +88,10 @@ namespace leveldb
   };
 
 extern ZoneMapping* GetDefaultZoneMapping();
+
+extern void PrintZnsZoneInfo(ZnsZoneInfo* zfi_ptr);
+
+extern void PrintZnsFileInfo(ZnsFileInfo& file_info);
 
 } // namespace leveldb
 #endif

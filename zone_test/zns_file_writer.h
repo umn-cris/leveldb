@@ -44,10 +44,18 @@ class ZnsFileWriter {
 
   void CreateFile(std::string file_name) {
     live_files_.insert(file_name);
+    current_file_ = file_name;
+  }
+
+  void CloseFile(std::string file_name) {
+    if (file_name == current_file_) {
+      current_file_ = "";
+    }
   }
 
   void RemoveFile(std::string file_name) {
     live_files_.erase(file_name);
+    current_file_ = "";
   }
 
   int GetScore() {
@@ -58,9 +66,18 @@ class ZnsFileWriter {
     score_ = score;
   }
 
+  ZnsZoneInfo* GetOpenZone() {
+    return open_zone_;
+  }
+
+  std::string GetCurrentFileName() {
+    return current_file_;
+  }
+
  private:
   ZnsZoneInfo* open_zone_;
   std::set<std::string> live_files_;
+  std::string current_file_;
   bool is_in_use_;
   int level_;
   int score_;
@@ -74,31 +91,42 @@ struct FileInfoInWriter {
 
 class ZnsFileWriterManager {
  public:
-  ZnsFileWriterManager(ZoneMapping* zone_mapping) {
-    zone_mapping_ = zone_mapping;
-    int logger_num = 5;
-    for (int i=0; i< logger_num; i++) {
-      AddFileWriter(i, INT_MAX);
-    }
-  }
+  ZnsFileWriterManager(ZoneMapping* zone_mapping);
 
-  ~ZnsFileWriterManager() {}
+  ~ZnsFileWriterManager();
 
+  //ZoneMapping::CreateFileOnZone is called inside this funciton
+  // No need to call it again.
+  // file_size_max is important, we need to estimate if current zone
+  // available space is enough for this file. If not, we need to get another
+  // empty zone for this writer.
   Status CreateFileByThisWriter(uint64_t now_time, ZnsFileWriter* writer,
-              std::string file_name);
+              std::string file_name, size_t file_size_max);
 
- //should be called together with ZoneMapping::DeleteFileOnZone
+ //ZoneMapping::DeleteFileOnZone is called inside this funciton
   Status DeleteFile(uint64_t now_time, std::string file_name);
+
+  Status AppendDataOnFile(std::string file_name, size_t len, const char *buffer);
+
+  Status ReadDataOnFile(std::string file_name, size_t offset,
+          size_t len, const char *buffer);
+
+  // when close is called, it will set this writer to available
+  Status CloseFile(ZnsFileWriter* writer, std::string file_name);
 
   ZnsFileWriter* GetZnsFileWriter(WriteHints hints);
 
   Status AddFileWriter(int level, int score);
 
+  ZoneMapping* GetZoneMapping() {
+    return zone_mapping_;
+  }
+
  private:
   ZoneMapping* zone_mapping_;
   std::unordered_map<std::string, FileInfoInWriter> file_to_writer_;
   std::unordered_map<int, std::map<int, ZnsFileWriter*, std::greater<int>>> file_writer_map_;
-  std::vector<ZnsFileWriter> file_writers_;
+  std::vector<ZnsFileWriter*> file_writers_;
 
 };
 

@@ -35,7 +35,7 @@ int main() {
     assert(s.ok());
     cout<<"zone info "<<zfi_ptr->zone_id<<" "<<zfi_ptr->valid_file_num<<" "<<zfi_ptr->valid_size<<"\n";
     size_t write_offset;
-    zone_mapping.CreateFileOnZone(env, "test_file.sst", zfi_ptr->zone_id, write_offset);
+    zone_mapping.CreateFileOnZone(env->NowMicros(), "test_file.sst", zfi_ptr->zone_id, &write_offset);
     cout<<"zone info "<<zfi_ptr->zone_id<<" "<<zfi_ptr->valid_file_num<<" "<<zfi_ptr->valid_size<<"\n";
     ZnsFileInfo file_info;
     zone_mapping.GetZnsFileInfo("test_file.sst", &file_info);
@@ -65,7 +65,7 @@ int main() {
         <<" "<<(int)file_info.f_stat<<" "<<file_info.length<<" "<<file_info.offset<<" "<<file_info.zone_id<<"\n";
 
 
-    zone_mapping.DeleteFileOnZone(env, "test_file.sst");
+    zone_mapping.DeleteFileOnZone(env->NowMicros(), "test_file.sst");
     cout<<"zone info "<<zfi_ptr->zone_id<<" "<<zfi_ptr->valid_file_num<<" "<<zfi_ptr->valid_size<<"\n";
     zone_mapping.GetZnsFileInfo("test_file.sst", &file_info);
     cout<<"File info "<<file_info.file_name<<" "<<file_info.create_time<<" "<<file_info.delete_time
