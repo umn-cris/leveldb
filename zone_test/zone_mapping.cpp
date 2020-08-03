@@ -43,7 +43,7 @@ Status ZoneMapping::GetAndUseOneEmptyZone(ZnsZoneInfo** z_info_ptr) {
   return Status::OK();
 }
 
-Status ZoneMapping::CreateFileOnZone(Env* env, std::string file_name, int zone_id, size_t& offset) {
+Status ZoneMapping::CreateFileOnZone(uint64_t now_time, std::string file_name, int zone_id, size_t* offset) {
   auto found = files_map_.find(file_name);
   auto z = used_zones_.find(zone_id);
   if (found != files_map_.end() || z == used_zones_.end()) {
@@ -60,15 +60,15 @@ Status ZoneMapping::CreateFileOnZone(Env* env, std::string file_name, int zone_i
   tmp_info.offset = z_info.write_pointer;
   tmp_info.length = 0;
   tmp_info.f_stat = ZnsFileStat::kCreated;
-  tmp_info.create_time = env->NowMicros();
+  tmp_info.create_time = now_time;
   tmp_info.delete_time = 0;
   files_map_.insert(std::make_pair(file_name, tmp_info));
   z->second->files_map.insert(std::make_pair(file_name, &(files_map_[file_name])));
-  offset = tmp_info.offset;
+  *offset = tmp_info.offset;
   return Status::OK();
 }
 
-Status ZoneMapping::DeleteFileOnZone(Env* env, std::string file_name) {
+Status ZoneMapping::DeleteFileOnZone(uint64_t now_time, std::string file_name) {
   auto found = files_map_.find(file_name);
   if (found == files_map_.end()) {
     return Status::OK();
@@ -91,7 +91,7 @@ Status ZoneMapping::DeleteFileOnZone(Env* env, std::string file_name) {
 
   // Update the file info
   found->second.f_stat = ZnsFileStat::kDeleted;
-  found->second.delete_time = env->NowMicros();
+  found->second.delete_time = now_time;
   found->second.length = 0;
   found->second.offset = 0;
   found->second.zone_id = -1;
@@ -203,6 +203,21 @@ ZoneMapping* GetDefaultZoneMapping() {
   std::shared_ptr<ZoneNamespace> zns_ptr = HmZoneNamespace::CreatZoneNamespace();
   static ZoneMapping* zm_ptr = new ZoneMapping(zns_ptr, ZONEFile_NUMBER);
   return zm_ptr;
+}
+
+void PrintZnsZoneInfo(ZnsZoneInfo* zfi_ptr) {
+  if (zfi_ptr == nullptr) {
+    cout<<"zns_zone_info is nullptr!\n";
+  }
+  cout<<"zone id: "<<zfi_ptr->zone_id<<" valid_file_num: "
+      <<zfi_ptr->valid_file_num<<" valid_size: "<<zfi_ptr->valid_size<<"\n";
+}
+
+void PrintZnsFileInfo(ZnsFileInfo& file_info) {
+  cout<<"File name: "<<file_info.file_name<<" create_time: "<<file_info.create_time
+      <<" delete_time: "<<file_info.delete_time<<" file_status: "
+      <<(int)file_info.f_stat<<" file_length: "<<file_info.length<<" file_offset_in_zone: "
+      <<file_info.offset<<" zone_id: "<<file_info.zone_id<<"\n";
 }
 
 } //name space
