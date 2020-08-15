@@ -232,5 +232,3 @@ clients probably won't use directly.
 
 This is used for the ssd testing
 
-
-//This line is modified by Wenlong Wang
