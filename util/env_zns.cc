@@ -39,6 +39,23 @@
 namespace leveldb {
 
 namespace {
+// Set by EnvPosixTestHelper::SetReadOnlyMMapLimit() and MaxOpenFiles().
+int g_open_read_only_file_limit = -1;
+
+// Up to 1000 mmap regions for 64-bit binaries; none for 32-bit.
+constexpr const int kDefaultMmapLimit = (sizeof(void*) >= 8) ? 1000 : 0;
+
+// Can be set using EnvPosixTestHelper::SetReadOnlyMMapLimit().
+int g_mmap_limit = kDefaultMmapLimit;
+
+// Common flags defined for all posix open operations
+#if defined(HAVE_O_CLOEXEC)
+constexpr const int kOpenBaseFlags = O_CLOEXEC;
+#else
+constexpr const int kOpenBaseFlags = 0;
+#endif  // defined(HAVE_O_CLOEXEC)
+
+constexpr const size_t kWritableFileBufferSize = 65536;
 
 Status ZnsError(const std::string& context, int error_number) {
   if (error_number == ENOENT) {
@@ -534,7 +551,7 @@ class ZnsEnv : public Env {
       return ZnsError(filename, errno);
     }
 
-    *result = new PosixWritableFile(filename, fd);
+    *result = new ZnsWritableFile(filename, fd);
     return Status::OK();
   }
 
@@ -864,5 +881,20 @@ std::atomic<bool> ZnsSingletonEnv<EnvType>::env_initialized_;
 using ZnsDefaultEnv = ZnsSingletonEnv<ZnsEnv>;
 
 }  // namespace
+
+void EnvPosixTestHelper::SetReadOnlyFDLimit(int limit) {
+  ZnsDefaultEnv::AssertEnvNotInitialized();
+  g_open_read_only_file_limit = limit;
+}
+
+void EnvPosixTestHelper::SetReadOnlyMMapLimit(int limit) {
+  ZnsDefaultEnv::AssertEnvNotInitialized();
+  g_mmap_limit = limit;
+}
+
+Env* Env::Default() {
+  static ZnsDefaultEnv env_container;
+  return env_container.env();
+}
 
 }  // namespace leveldb

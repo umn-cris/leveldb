@@ -23,6 +23,12 @@ if(NOT CMAKE_CXX_STANDARD)
 endif(NOT CMAKE_CXX_STANDARD)
 
 if (WIN32)
+  set(ZNS 0)
+else (WIN32)
+  set(ZNS 1)
+endif (WIN32)
+
+if (WIN32)
   set(LEVELDB_PLATFORM_NAME LEVELDB_PLATFORM_WINDOWS)
   # TODO(cmumford): Make UNICODE configurable for Windows.
   add_definitions(-D_UNICODE -DUNICODE)
@@ -223,12 +229,19 @@ if (WIN32)
       "util/windows_logger.h"
   )
 else (WIN32)
-  target_sources(leveldb
+  if (ZNS)
+    target_sources(leveldb
     PRIVATE
-      "util/env_posix.cc"
       "util/env_zns.cc"
       "util/posix_logger.h"
-  )
+    )
+  else (ZNS)
+    target_sources(leveldb
+      PRIVATE
+        "util/env_posix.cc"
+        "util/posix_logger.h"
+    )
+  endif (ZNS)
 endif (WIN32)
 
 # MemEnv is not part of the interface and could be pulled to a separate library.
