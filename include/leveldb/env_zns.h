@@ -5,6 +5,7 @@
 
 #include "leveldb/env.h"
 #include "zone_test/zone_namespace.h"
+#include "zone_test/zns_file_writer.h"
 
 namespace leveldb {
 

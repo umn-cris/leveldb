@@ -12,11 +12,13 @@
 #include <functional>
 
 #include "leveldb/env.h"
-#include "zone_namespace.h"
-#include "zone_mapping.h"
+#include "zone_test/zone_namespace.h"
+#include "zone_test/zone_mapping.h"
 
 namespace leveldb
 {
+
+struct WriteHints;
 
 class ZnsFileWriter {
  public:
@@ -29,7 +31,7 @@ class ZnsFileWriter {
 
   ~ZnsFileWriter() {}
 
-  int GetZoneID() { return open_zone_->zone_id; }
+  int GetZoneID() { return open_zone_->GetZoneID(); }
 
   Status SetOpenZone(ZnsZoneInfo* new_open_zone) {
     open_zone_ = new_open_zone;
