@@ -98,6 +98,16 @@ Status ZoneMapping::DeleteFileOnZone(uint64_t now_time, std::string file_name) {
   return Status::OK();
 }
 
+Status ZoneMapping::RenameFileOnZone(const std::string& from, const std::string& to) {
+  auto found = files_map_.find(from);
+  if (found == files_map_.end()) {
+    return Status::InvalidArgument("invalid");
+  }
+
+  found->second.file_name = to;
+  return Status::OK();
+}
+
 Status ZoneMapping::CloseFileOnZone(std::string file_name) {
   auto found = files_map_.find(file_name);
   if (found == files_map_.end()) {

@@ -309,14 +309,16 @@ class ZnsWritableFile final : public WritableFile {
         file_writer_manager_(GetDefualtZnsFileWriterManager()) {
     // when new writable file is create, the file writer manager need to provide a
     // file writer for this writable file to write data
-    file_writer_ = file_writer_manager_->GetZnsFileWriter(write_hints_);
-    assert(file_writer_->GetUsageStatus() = false);
-    file_writer_->SetInUse();
-    assert(file_writer_->GetUsageStatus() = true);
-    env_ = Env::Default();
-    size_t max_file_size = 2 * 1024 * 1024;
-    file_writer_manager_->CreateFileByThisWriter(env_->NowMicros(), file_writer_,
-    filename_, max_file_size);
+    if (write_hints_.file_cate == 1) {
+      file_writer_ = file_writer_manager_->GetZnsFileWriter(write_hints_);
+      assert(file_writer_->GetUsageStatus() = false);
+      file_writer_->SetInUse();
+      assert(file_writer_->GetUsageStatus() = true);
+      env_ = Env::Default();
+      size_t max_file_size = 2 * 1024 * 1024;
+      file_writer_manager_->CreateFileByThisWriter(env_->NowMicros(), file_writer_,
+      filename_, max_file_size);
+    }
   }
 
   ~ZnsWritableFile() override {
@@ -345,7 +347,9 @@ class ZnsWritableFile final : public WritableFile {
       status = ZnsError(filename_, errno);
     }
     fd_ = -1;
-    file_writer_manager_->CloseFile(file_writer_, filename_);
+    if (write_hints_.file_cate == 1) {
+      file_writer_manager_->CloseFile(file_writer_, filename_);
+    }
     return status;
   }
 
@@ -588,7 +592,7 @@ class ZnsEnv : public Env {
     ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
     ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
     ZnsFileInfo file_info;
-    Status s = zone_mapping->GetZnsFileInfo("test_file.sst", &file_info);
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
     if (s.ok()) {
       // we find the file in the zns
       int fd = -2;
@@ -611,7 +615,7 @@ class ZnsEnv : public Env {
     ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
     ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
     ZnsFileInfo file_info;
-    Status s = zone_mapping->GetZnsFileInfo("test_file.sst", &file_info);
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
     if (s.ok()) {
       // we find the file in the zns
       int fd = -2;
@@ -695,7 +699,7 @@ class ZnsEnv : public Env {
     ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
     ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
     ZnsFileInfo file_info;
-    Status s = zone_mapping->GetZnsFileInfo("test_file.sst", &file_info);
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
     if (s.ok()) {
       // we find the file in the zns
       return true;
@@ -719,6 +723,14 @@ class ZnsEnv : public Env {
   }
 
   Status RemoveFile(const std::string& filename) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      return fw_manager->DeleteFile(this->NowMicros(), filename);
+    }
     if (::unlink(filename.c_str()) != 0) {
       return ZnsError(filename, errno);
     }
@@ -740,6 +752,15 @@ class ZnsEnv : public Env {
   }
 
   Status GetFileSize(const std::string& filename, uint64_t* size) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      *size = file_info.length;
+      return Status::OK();
+    }
     struct ::stat file_stat;
     if (::stat(filename.c_str(), &file_stat) != 0) {
       *size = 0;
@@ -750,6 +771,18 @@ class ZnsEnv : public Env {
   }
 
   Status RenameFile(const std::string& from, const std::string& to) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(from, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      s = fw_manager->RenameFile(from, to);
+      if (!s.ok) {
+        return ZnsError(from, errno);
+      }
+      return Status::OK();
+    }
     if (std::rename(from.c_str(), to.c_str()) != 0) {
       return ZnsError(from, errno);
     }

@@ -60,6 +60,16 @@ class ZnsFileWriter {
     current_file_ = "";
   }
 
+  Status RenameFile(const std::string& from, const std::string& to) {
+    if (live_files_.find(from) == live_files_.end()) {
+      return Status::NotFound(from);
+    } else {
+      live_files_.erase(from);
+      live_files_.insert(to);
+      return Status::OK();
+    }
+  }
+
   int GetScore() {
     return score_;
   }
@@ -107,6 +117,9 @@ class ZnsFileWriterManager {
 
  //ZoneMapping::DeleteFileOnZone is called inside this funciton
   Status DeleteFile(uint64_t now_time, std::string file_name);
+
+  //ZoneMapping::RenameFileOnZone is called inside this function
+  Status RenameFile(const std::string& from, const std::string& to);
 
   Status AppendDataOnFile(std::string file_name, size_t len, const char *buffer);
 

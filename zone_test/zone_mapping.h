@@ -69,6 +69,8 @@ namespace leveldb
 
     Status DeleteFileOnZone(uint64_t now_time, std::string file_name);
 
+    Status RenameFileOnZone(const std::string& from, const std::string& to);
+
     Status CloseFileOnZone(std::string file_name);
 
     Status ReadFileOnZone(std::string file_name, size_t offset, size_t len, const char *buffer);
