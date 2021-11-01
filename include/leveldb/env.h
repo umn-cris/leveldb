@@ -20,7 +20,7 @@
 
 #include "leveldb/export.h"
 #include "leveldb/status.h"
-#include "zone_test/zone_namespace.h"
+
 
 // This workaround can be removed when leveldb::Env::DeleteFile is removed.
 #if defined(_WIN32)
@@ -51,11 +51,11 @@ class WritableFile;
 
 struct WriteHints {
   // SSt files are from 0 to N, other files (e.g., WAL, Manifest) are -1
-  int write_level;
+  int write_level = -1;
 
   // the category, sst file is 1, WAL is 2, manifest is 3,
-  //current is 4, LOG is 5
-  int file_cate;
+  //current is 4, LOG is 5. If it is 0, we ignore the infomation
+  int file_cate = -1;
 };
 
 class LEVELDB_EXPORT Env {

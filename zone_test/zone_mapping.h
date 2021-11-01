@@ -10,7 +10,7 @@
 #include <unordered_map>
 
 #include "leveldb/env.h"
-#include "zone_namespace.h"
+#include "zone_test/zone_namespace.h"
 
 namespace leveldb
 {
@@ -46,6 +46,8 @@ namespace leveldb
       ZoneInfo z_info = zone_ptr->ReportZone();
       return z_info.write_pointer;
     }
+
+    int GetZoneID() {return zone_id;}
   };
 
   class ZoneMapping
@@ -66,6 +68,8 @@ namespace leveldb
     Status CreateFileOnZone(uint64_t now_time, std::string file_name, int zone_id, size_t* offset);
 
     Status DeleteFileOnZone(uint64_t now_time, std::string file_name);
+
+    Status RenameFileOnZone(const std::string& from, const std::string& to);
 
     Status CloseFileOnZone(std::string file_name);
 

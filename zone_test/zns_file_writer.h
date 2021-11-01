@@ -12,11 +12,13 @@
 #include <functional>
 
 #include "leveldb/env.h"
-#include "zone_namespace.h"
-#include "zone_mapping.h"
+#include "zone_test/zone_namespace.h"
+#include "zone_test/zone_mapping.h"
 
 namespace leveldb
 {
+
+struct WriteHints;
 
 class ZnsFileWriter {
  public:
@@ -29,7 +31,7 @@ class ZnsFileWriter {
 
   ~ZnsFileWriter() {}
 
-  int GetZoneID() { return open_zone_->zone_id; }
+  int GetZoneID() { return open_zone_->GetZoneID(); }
 
   Status SetOpenZone(ZnsZoneInfo* new_open_zone) {
     open_zone_ = new_open_zone;
@@ -56,6 +58,16 @@ class ZnsFileWriter {
   void RemoveFile(std::string file_name) {
     live_files_.erase(file_name);
     current_file_ = "";
+  }
+
+  Status RenameFile(const std::string& from, const std::string& to) {
+    if (live_files_.find(from) == live_files_.end()) {
+      return Status::NotFound(from);
+    } else {
+      live_files_.erase(from);
+      live_files_.insert(to);
+      return Status::OK();
+    }
   }
 
   int GetScore() {
@@ -105,6 +117,9 @@ class ZnsFileWriterManager {
 
  //ZoneMapping::DeleteFileOnZone is called inside this funciton
   Status DeleteFile(uint64_t now_time, std::string file_name);
+
+  //ZoneMapping::RenameFileOnZone is called inside this function
+  Status RenameFile(const std::string& from, const std::string& to);
 
   Status AppendDataOnFile(std::string file_name, size_t len, const char *buffer);
 

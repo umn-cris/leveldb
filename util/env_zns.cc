@@ -39,6 +39,23 @@
 namespace leveldb {
 
 namespace {
+// Set by EnvPosixTestHelper::SetReadOnlyMMapLimit() and MaxOpenFiles().
+int g_open_read_only_file_limit = -1;
+
+// Up to 1000 mmap regions for 64-bit binaries; none for 32-bit.
+constexpr const int kDefaultMmapLimit = (sizeof(void*) >= 8) ? 1000 : 0;
+
+// Can be set using EnvPosixTestHelper::SetReadOnlyMMapLimit().
+int g_mmap_limit = kDefaultMmapLimit;
+
+// Common flags defined for all posix open operations
+#if defined(HAVE_O_CLOEXEC)
+constexpr const int kOpenBaseFlags = O_CLOEXEC;
+#else
+constexpr const int kOpenBaseFlags = 0;
+#endif  // defined(HAVE_O_CLOEXEC)
+
+constexpr const size_t kWritableFileBufferSize = 65536;
 
 Status ZnsError(const std::string& context, int error_number) {
   if (error_number == ENOENT) {
@@ -91,10 +108,30 @@ class ZnsLimiter {
 class ZnsSequentialFile final : public SequentialFile {
  public:
   ZnsSequentialFile(std::string filename, int fd)
-      : fd_(fd), filename_(filename) {}
+      : fd_(fd), filename_(filename), zns_file_offset_(0){}
   ~ZnsSequentialFile() override { close(fd_); }
 
   Status Read(size_t n, Slice* result, char* scratch) override {
+    if (fd_ == -2) {
+      return ZnsRead(n, result, scratch);
+    } else {
+      return RegularRead(n, result, scratch);
+    }
+  }
+
+  Status Skip(uint64_t n) override {
+    if (fd_ == -2) {
+      zns_file_offset_ += static_cast<size_t>(n);
+      return Status::OK();
+    }
+    if (::lseek(fd_, n, SEEK_CUR) == static_cast<off_t>(-1)) {
+      return ZnsError(filename_, errno);
+    }
+    return Status::OK();
+  }
+
+ private:
+  Status RegularRead(size_t n, Slice* result, char* scratch) {
     Status status;
     while (true) {
       ::ssize_t read_size = ::read(fd_, scratch, n);
@@ -111,16 +148,21 @@ class ZnsSequentialFile final : public SequentialFile {
     return status;
   }
 
-  Status Skip(uint64_t n) override {
-    if (::lseek(fd_, n, SEEK_CUR) == static_cast<off_t>(-1)) {
-      return ZnsError(filename_, errno);
+  Status ZnsRead(size_t n, Slice* result, char* scratch) {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    // TODO: has issue here, should return the valid data size not Status
+    Status s = fw_manager->ReadDataOnFile(filename_, zns_file_offset_, n, scratch);
+    if (!s.ok()) {
+      s = ZnsError(filename_, errno);
+      return s;
     }
-    return Status::OK();
+    *result = Slice(scratch, n);
+    return s;
   }
 
- private:
   const int fd_;
   const std::string filename_;
+  size_t zns_file_offset_;
 };
 
 // Implements random read access in a file using pread().
@@ -136,7 +178,8 @@ class ZnsRandomAccessFile final : public RandomAccessFile {
       : has_permanent_fd_(fd_limiter->Acquire()),
         fd_(has_permanent_fd_ ? fd : -1),
         fd_limiter_(fd_limiter),
-        filename_(std::move(filename)) {
+        filename_(std::move(filename)),
+        pass_in_fd_(fd) {
     if (!has_permanent_fd_) {
       assert(fd_ == -1);
       ::close(fd);  // The file will be opened on every read.
@@ -153,6 +196,17 @@ class ZnsRandomAccessFile final : public RandomAccessFile {
 
   Status Read(uint64_t offset, size_t n, Slice* result,
               char* scratch) const override {
+    if (pass_in_fd_ == -2) {
+      return ZnsRead(offset, n, result, scratch);
+    } else {
+      return RegularRead(offset, n, result, scratch);
+    }
+  }
+
+ private:
+
+  Status RegularRead(uint64_t offset, size_t n, Slice* result,
+              char* scratch) const {
     int fd = fd_;
     if (!has_permanent_fd_) {
       fd = ::open(filename_.c_str(), O_RDONLY | kOpenBaseFlags);
@@ -178,11 +232,25 @@ class ZnsRandomAccessFile final : public RandomAccessFile {
     return status;
   }
 
- private:
+  Status ZnsRead(uint64_t offset, size_t n, Slice* result,
+              char* scratch) const {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    // TODO: has issue here, should return the valid data size not Status
+    size_t cur_offset = static_cast<size_t>(offset);
+    Status s = fw_manager->ReadDataOnFile(filename_, cur_offset, n, scratch);
+    if (!s.ok()) {
+      s = ZnsError(filename_, errno);
+      return s;
+    }
+    *result = Slice(scratch, n);
+    return s;
+  }
+
   const bool has_permanent_fd_;  // If false, the file is opened on every read.
   const int fd_;                 // -1 if has_permanent_fd_ is false.
   ZnsLimiter* const fd_limiter_;
   const std::string filename_;
+  int pass_in_fd_;
 };
 
 // Implements random read access in a file using mmap().
@@ -231,12 +299,27 @@ class ZnsMmapReadableFile final : public RandomAccessFile {
 
 class ZnsWritableFile final : public WritableFile {
  public:
-  ZnsWritableFile(std::string filename, int fd)
+  ZnsWritableFile(std::string filename, int fd, WriteHints write_hints)
       : pos_(0),
         fd_(fd),
         is_manifest_(IsManifest(filename)),
         filename_(std::move(filename)),
-        dirname_(Dirname(filename_)) {}
+        dirname_(Dirname(filename_)),
+        write_hints_(write_hints),
+        file_writer_manager_(GetDefualtZnsFileWriterManager()) {
+    // when new writable file is create, the file writer manager need to provide a
+    // file writer for this writable file to write data
+    if (write_hints_.file_cate == 1) {
+      file_writer_ = file_writer_manager_->GetZnsFileWriter(write_hints_);
+      assert(file_writer_->GetUsageStatus() = false);
+      file_writer_->SetInUse();
+      assert(file_writer_->GetUsageStatus() = true);
+      env_ = Env::Default();
+      size_t max_file_size = 2 * 1024 * 1024;
+      file_writer_manager_->CreateFileByThisWriter(env_->NowMicros(), file_writer_,
+      filename_, max_file_size);
+    }
+  }
 
   ~ZnsWritableFile() override {
     if (fd_ >= 0) {
@@ -246,33 +329,16 @@ class ZnsWritableFile final : public WritableFile {
   }
 
   Status Append(const Slice& data) override {
-    size_t write_size = data.size();
-    const char* write_data = data.data();
-
-    // Fit as much as possible into buffer.
-    size_t copy_size = std::min(write_size, kWritableFileBufferSize - pos_);
-    std::memcpy(buf_ + pos_, write_data, copy_size);
-    write_data += copy_size;
-    write_size -= copy_size;
-    pos_ += copy_size;
-    if (write_size == 0) {
-      return Status::OK();
+    if (write_hints_.file_cate == 1) {
+      // for sst file, write to the zns zone
+      return ZnsAppend(data);
+    } else {
+      // other case, write to the regular file
+      return RegularAppend(data);
     }
-
-    // Can't fit in buffer, so need to do at least one write.
-    Status status = FlushBuffer();
-    if (!status.ok()) {
-      return status;
-    }
-
-    // Small writes go to buffer, large writes are written directly.
-    if (write_size < kWritableFileBufferSize) {
-      std::memcpy(buf_, write_data, write_size);
-      pos_ = write_size;
-      return Status::OK();
-    }
-    return WriteUnbuffered(write_data, write_size);
   }
+
+
 
   Status Close() override {
     Status status = FlushBuffer();
@@ -281,6 +347,9 @@ class ZnsWritableFile final : public WritableFile {
       status = ZnsError(filename_, errno);
     }
     fd_ = -1;
+    if (write_hints_.file_cate == 1) {
+      file_writer_manager_->CloseFile(file_writer_, filename_);
+    }
     return status;
   }
 
@@ -409,6 +478,40 @@ class ZnsWritableFile final : public WritableFile {
     return Basename(filename).starts_with("MANIFEST");
   }
 
+  Status RegularAppend(const Slice& data) {
+    size_t write_size = data.size();
+    const char* write_data = data.data();
+
+    // Fit as much as possible into buffer.
+    size_t copy_size = std::min(write_size, kWritableFileBufferSize - pos_);
+    std::memcpy(buf_ + pos_, write_data, copy_size);
+    write_data += copy_size;
+    write_size -= copy_size;
+    pos_ += copy_size;
+    if (write_size == 0) {
+      return Status::OK();
+    }
+
+    // Can't fit in buffer, so need to do at least one write.
+    Status status = FlushBuffer();
+    if (!status.ok()) {
+      return status;
+    }
+
+    // Small writes go to buffer, large writes are written directly.
+    if (write_size < kWritableFileBufferSize) {
+      std::memcpy(buf_, write_data, write_size);
+      pos_ = write_size;
+      return Status::OK();
+    }
+    return WriteUnbuffered(write_data, write_size);
+  }
+
+  Status ZnsAppend(const Slice& data) {
+    return file_writer_manager_->AppendDataOnFile(filename_, data.size(),
+         data.data());
+  }
+
   // buf_[0, pos_ - 1] contains data to be written to fd_.
   char buf_[kWritableFileBufferSize];
   size_t pos_;
@@ -417,6 +520,10 @@ class ZnsWritableFile final : public WritableFile {
   const bool is_manifest_;  // True if the file's name starts with MANIFEST.
   const std::string filename_;
   const std::string dirname_;  // The directory of filename_.
+  const WriteHints write_hints_; // the hints of this file
+  ZnsFileWriterManager* file_writer_manager_ = nullptr;   // the place to do the zns write
+  ZnsFileWriter* file_writer_;
+  Env* env_;
 };
 
 int ZnsLockOrUnlock(int fd, bool lock) {
@@ -482,6 +589,16 @@ class ZnsEnv : public Env {
 
   Status NewSequentialFile(const std::string& filename,
                            SequentialFile** result) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      int fd = -2;
+      *result = new ZnsSequentialFile(filename, fd);
+      return Status::OK();
+    }
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
       *result = nullptr;
@@ -495,6 +612,16 @@ class ZnsEnv : public Env {
   Status NewRandomAccessFile(const std::string& filename,
                              RandomAccessFile** result) override {
     *result = nullptr;
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      int fd = -2;
+      *result = new ZnsRandomAccessFile(filename, fd, &fd_limiter_);
+      return Status::OK();
+    }
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
       return ZnsError(filename, errno);
@@ -533,16 +660,24 @@ class ZnsEnv : public Env {
       *result = nullptr;
       return ZnsError(filename, errno);
     }
-
-    *result = new PosixWritableFile(filename, fd);
+    WriteHints write_hints;
+    write_hints.write_level = -1;
+    write_hints.file_cate = -1;   // old interface,ignore it
+    *result = new ZnsWritableFile(filename, fd, write_hints);
     return Status::OK();
   }
 
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result,
                          WriteHints write_hints) override {
-    (void)write_hints;
-    return NewWritableFile(filename, result);
+    int fd = ::open(filename.c_str(),
+                    O_TRUNC | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
+    if (fd < 0) {
+      *result = nullptr;
+      return ZnsError(filename, errno);
+    }
+    *result = new ZnsWritableFile(filename, fd, write_hints);
+    return Status::OK();
   }
 
   Status NewAppendableFile(const std::string& filename,
@@ -553,12 +688,22 @@ class ZnsEnv : public Env {
       *result = nullptr;
       return ZnsError(filename, errno);
     }
-
-    *result = new ZnsWritableFile(filename, fd);
+    WriteHints write_hints;
+    write_hints.write_level = -1;
+    write_hints.file_cate = -1;   // old interface,ignore it
+    *result = new ZnsWritableFile(filename, fd, write_hints);
     return Status::OK();
   }
 
   bool FileExists(const std::string& filename) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      return true;
+    }
     return ::access(filename.c_str(), F_OK) == 0;
   }
 
@@ -578,6 +723,14 @@ class ZnsEnv : public Env {
   }
 
   Status RemoveFile(const std::string& filename) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      return fw_manager->DeleteFile(this->NowMicros(), filename);
+    }
     if (::unlink(filename.c_str()) != 0) {
       return ZnsError(filename, errno);
     }
@@ -599,6 +752,15 @@ class ZnsEnv : public Env {
   }
 
   Status GetFileSize(const std::string& filename, uint64_t* size) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(filename, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      *size = file_info.length;
+      return Status::OK();
+    }
     struct ::stat file_stat;
     if (::stat(filename.c_str(), &file_stat) != 0) {
       *size = 0;
@@ -609,6 +771,18 @@ class ZnsEnv : public Env {
   }
 
   Status RenameFile(const std::string& from, const std::string& to) override {
+    ZnsFileWriterManager* fw_manager = GetDefualtZnsFileWriterManager();
+    ZoneMapping* zone_mapping = fw_manager->GetZoneMapping();
+    ZnsFileInfo file_info;
+    Status s = zone_mapping->GetZnsFileInfo(from, &file_info);
+    if (s.ok()) {
+      // we find the file in the zns
+      s = fw_manager->RenameFile(from, to);
+      if (!s.ok) {
+        return ZnsError(from, errno);
+      }
+      return Status::OK();
+    }
     if (std::rename(from.c_str(), to.c_str()) != 0) {
       return ZnsError(from, errno);
     }
@@ -864,5 +1038,20 @@ std::atomic<bool> ZnsSingletonEnv<EnvType>::env_initialized_;
 using ZnsDefaultEnv = ZnsSingletonEnv<ZnsEnv>;
 
 }  // namespace
+
+void EnvPosixTestHelper::SetReadOnlyFDLimit(int limit) {
+  ZnsDefaultEnv::AssertEnvNotInitialized();
+  g_open_read_only_file_limit = limit;
+}
+
+void EnvPosixTestHelper::SetReadOnlyMMapLimit(int limit) {
+  ZnsDefaultEnv::AssertEnvNotInitialized();
+  g_mmap_limit = limit;
+}
+
+Env* Env::Default() {
+  static ZnsDefaultEnv env_container;
+  return env_container.env();
+}
 
 }  // namespace leveldb

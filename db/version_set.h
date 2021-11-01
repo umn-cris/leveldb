@@ -285,6 +285,8 @@ class VersionSet {
   };
   const char* LevelSummary(LevelSummaryStorage* scratch) const;
 
+  std::map<int, std::map<uint64_t, FileStat>> all_file_stats_;
+
  private:
   class Builder;
 
@@ -319,7 +321,7 @@ class VersionSet {
   uint64_t last_sequence_;
   uint64_t log_number_;
   uint64_t prev_log_number_;  // 0 or backing store for memtable being compacted
-  std::map<int, std::map<uint64_t, FileStat>> all_file_stats_;
+
 
   // Opened lazily
   WritableFile* descriptor_file_;

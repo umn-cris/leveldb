@@ -73,6 +73,19 @@ namespace leveldb {
     return zone_mapping_->DeleteFileOnZone(now_time, file_name);
   }
 
+  Status ZnsFileWriterManager::RenameFile(const std::string& from, const std::string& to) {
+    auto found = file_to_writer_.find(from);
+    if (found == file_to_writer_.end()) {
+      return zone_mapping_->RenameFileOnZone(from, to);
+    }
+    auto ptr = found->second.writer_ptr;
+    Status s = ptr->RenameFile(from, to);
+    if (!s.ok()) {
+      return s;
+    }
+    return zone_mapping_->RenameFileOnZone(from, to);
+  }
+
   Status ZnsFileWriterManager::AppendDataOnFile(std::string file_name, size_t len, const char *buffer) {
     auto found = file_to_writer_.find(file_name);
     if (found == file_to_writer_.end()) {

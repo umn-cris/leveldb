@@ -8,6 +8,7 @@
 #include <cstddef>
 
 #include "leveldb/export.h"
+#include "zone_test/zns_file_writer.h"
 
 namespace leveldb {
 
@@ -144,6 +145,15 @@ struct LEVELDB_EXPORT Options {
   // If enabled, write the internal statistics to the StatLog. It is
   // Stored in the DB directory and named as StatLog_(time in micro)
   bool stat_log = true;
+
+  // the ZNS mapping table
+  ZoneMapping* zone_mapping = GetDefaultZoneMapping();
+
+  // the ZNS file writer manager
+  ZnsFileWriterManager* zfm_manager = GetDefualtZnsFileWriterManager();
+
+  // decide if we want to use the ZNS env to write the data
+  bool write_to_zns = false;
 };
 
 // Options that control read operations
